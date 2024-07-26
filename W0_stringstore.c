@@ -5,7 +5,7 @@
 
 /* Global Variables */
 #define MAX_STRING_BYTES 64
-#define INITIAL_ARRAY_BYTES 100
+#define INITIAL_ARRAY_BYTES 30
 #define DOUBLE_SIZE 2
 #define INITIAL_COUNT 1
 
@@ -52,11 +52,11 @@ int main(int argc, char** argv) {
     start = clock();
     store_string(s1, &array, &curr_array_capacity, &curr_array_use);
     store_string(s2, &array, &curr_array_capacity, &curr_array_use);
-    store_string(s3, &array, &curr_array_capacity, &curr_array_use);
-    store_string(s4, &array, &curr_array_capacity, &curr_array_use);
-    store_string(s5, &array, &curr_array_capacity, &curr_array_use);
-    store_string(s6, &array, &curr_array_capacity, &curr_array_use);
-    store_string(s7, &array, &curr_array_capacity, &curr_array_use);
+    //store_string(s3, &array, &curr_array_capacity, &curr_array_use);
+    //store_string(s4, &array, &curr_array_capacity, &curr_array_use);
+    //store_string(s5, &array, &curr_array_capacity, &curr_array_use);
+    //store_string(s6, &array, &curr_array_capacity, &curr_array_use);
+    //store_string(s7, &array, &curr_array_capacity, &curr_array_use);
     end = clock();
     time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
 
@@ -123,17 +123,20 @@ void store_string(char* s, char** array_ptr, size_t* curr_array_capacity, size_t
         } 
 
         /* The searching algorithm for sorted strings could be inserted here. */
-        // insert_sorted(s, *array_ptr, curr_array_capacity, curr_array_use);
+        if (!insert_sorted(s, *array_ptr, curr_array_capacity, curr_array_use)) {
+            fprintf(stderr ,"String not successfully inserted\n");
+            return;
+        }
 
 
-        /* Store length, string and counter in correct sub-block position */
-        *(int *)(*array_ptr + *curr_array_use)  = length; // treat location as an integer
-        strcpy(*array_ptr + *curr_array_use + sizeof(int), s); 
-        *(int *)(*array_ptr + *curr_array_use + sizeof(int) + length + 1) = INITIAL_COUNT; // treat location as an integer 
-        *(*array_ptr + *curr_array_use + 2 * sizeof(int) + length + 1) = '\0'; // Set a nullbyte at the end of the length, string, counter block
-        
-        /* Update currently used bytes of array */
-        (*curr_array_use) += data_size;
+        ///* Store length, string and counter in correct sub-block position */
+        //*(int *)(*array_ptr + *curr_array_use)  = length; // treat location as an integer
+        //strcpy(*array_ptr + *curr_array_use + sizeof(int), s); 
+        //*(int *)(*array_ptr + *curr_array_use + sizeof(int) + length + 1) = INITIAL_COUNT; // treat location as an integer 
+        //*(*array_ptr + *curr_array_use + 2 * sizeof(int) + length + 1) = '\0'; // Set a nullbyte at the end of the length, string, counter block
+        //
+        ///* Update currently used bytes of array */
+        //(*curr_array_use) += data_size;
 
 
     }
@@ -249,6 +252,27 @@ int insert_sorted(char* s, char* arr, size_t* curr_array_capacity, size_t* curr_
 
     int tmp_cmp; // This variable will be used for refined algorithm 
 
+    /* When array is initially empty; start of block*/
+    if (arr[0] == '\0') {
+        
+        if (offset != *curr_array_use) {
+            fprintf(stderr, "Nullbyte array. Inconsistent offset and curr_array_use\n");
+            return 0;
+        }
+
+        *(int *)(arr + offset)  = insert_s_length; // treat location as an integer
+        strcpy(arr + offset + sizeof(int), s); 
+        *(int *)(arr + offset + sizeof(int) + insert_s_length + 1) = INITIAL_COUNT; // treat location as an integer 
+        *(arr + *curr_array_use + 2 * sizeof(int) + insert_s_length + 1) = '\0'; // Set a nullbyte at the end of the length, string, counter block
+        
+        /* Update currently used bytes of array */
+        (*curr_array_use) += data_size;
+
+        /* Successful insertion; End function */
+        return 1;
+    }
+
+    /* Case when in between block */
     while(offset < (*curr_array_capacity) & *(arr + offset) != '\0') {
 
         /* Store string length and string (to be changed afterwards for speeding up) (if not found, insert at the end using curr_array_use) */
@@ -276,18 +300,34 @@ int insert_sorted(char* s, char* arr, size_t* curr_array_capacity, size_t* curr_
             strcpy(arr + offset + sizeof(int), s);
             *(int*)(arr + offset + sizeof(int) + insert_s_length + 1) = INITIAL_COUNT;
 
-            free(tmp_string); // Free memory
+            /* Free memory and update curr_array_use */
+            free(tmp_string); 
+            (*curr_array_use) += data_size;
 
             /* Function finishes after successful insertion */
             return 1;
         }
 
         free(tmp_string);
-        offset += data_size;
+        offset += 2 * sizeof(int) + 1 + tmp_stored_length; // size of temporary block 
 
     }
 
-    return 0;
+    /* Insert the string at the end of the "node" */
+    if (offset != *curr_array_use) { // Should be consistent
+        fprintf(stderr, "Nullbyte array. Inconsistent offset and curr_array_use\n");
+        return 0;
+    }
+
+    *(int *)(arr + offset)  = insert_s_length; // treat location as an integer
+    strcpy(arr + offset + sizeof(int), s); 
+    *(int *)(arr + offset + sizeof(int) + insert_s_length + 1) = INITIAL_COUNT; // treat location as an integer 
+    *(arr + *curr_array_use + 2 * sizeof(int) + insert_s_length + 1) = '\0'; // Set a nullbyte at the end of the length, string, counter block
+    
+    /* Update currently used bytes of array */
+    (*curr_array_use) += data_size;
+
+    return 1;
 }
 
 // This function has not been completed 
