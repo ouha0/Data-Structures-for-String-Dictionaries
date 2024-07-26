@@ -94,10 +94,6 @@ void store_string(char* s, char** array_ptr, size_t* curr_array_capacity, size_t
         return;
     }
 
-
-    int length = strlen(s);
-    size_t data_size = length + 1 + 2 * (sizeof(int)); // Size of sub-block (string length, string, counter)
-
     /* Function to insert the string at the correct position of the "node" / array. Double size 
      * of array if required. */ 
     if (!insert_sorted(s, array_ptr, curr_array_capacity, curr_array_use)) {

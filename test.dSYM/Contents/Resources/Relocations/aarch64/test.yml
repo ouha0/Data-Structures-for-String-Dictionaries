@@ -26,8 +26,8 @@ relocations:
   - { offsetInCU: 0x27A, offset: 0x27A, size: 0x8, addend: 0x0, symName: _.str.23, symObjAddr: 0x1B60, symBinAddr: 0x100003A00, symSize: 0x0 }
   - { offsetInCU: 0x304, offset: 0x304, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100001D5C, symSize: 0x4AC }
   - { offsetInCU: 0x567, offset: 0x567, size: 0x8, addend: 0x0, symName: _store_string, symObjAddr: 0x4AC, symBinAddr: 0x100002208, symSize: 0x150 }
-  - { offsetInCU: 0x664, offset: 0x664, size: 0x8, addend: 0x0, symName: _print_array_strings, symObjAddr: 0x5FC, symBinAddr: 0x100002358, symSize: 0x2C4 }
-  - { offsetInCU: 0x6F3, offset: 0x6F3, size: 0x8, addend: 0x0, symName: _insert_sorted, symObjAddr: 0x91C, symBinAddr: 0x100002678, symSize: 0xA30 }
-  - { offsetInCU: 0x813, offset: 0x813, size: 0x8, addend: 0x0, symName: _check_valid_string, symObjAddr: 0x8C0, symBinAddr: 0x10000261C, symSize: 0x5C }
-  - { offsetInCU: 0x898, offset: 0x898, size: 0x8, addend: 0x0, symName: _update_array_size, symObjAddr: 0x134C, symBinAddr: 0x1000030A8, symSize: 0x1A4 }
+  - { offsetInCU: 0x64E, offset: 0x64E, size: 0x8, addend: 0x0, symName: _print_array_strings, symObjAddr: 0x5FC, symBinAddr: 0x100002358, symSize: 0x2C4 }
+  - { offsetInCU: 0x6DD, offset: 0x6DD, size: 0x8, addend: 0x0, symName: _insert_sorted, symObjAddr: 0x91C, symBinAddr: 0x100002678, symSize: 0xA30 }
+  - { offsetInCU: 0x7FD, offset: 0x7FD, size: 0x8, addend: 0x0, symName: _check_valid_string, symObjAddr: 0x8C0, symBinAddr: 0x10000261C, symSize: 0x5C }
+  - { offsetInCU: 0x87D, offset: 0x87D, size: 0x8, addend: 0x0, symName: _update_array_size, symObjAddr: 0x134C, symBinAddr: 0x1000030A8, symSize: 0x1A4 }
 ...
