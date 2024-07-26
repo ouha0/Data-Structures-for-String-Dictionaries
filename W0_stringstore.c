@@ -52,11 +52,11 @@ int main(int argc, char** argv) {
     start = clock();
     store_string(s1, &array, &curr_array_capacity, &curr_array_use);
     store_string(s2, &array, &curr_array_capacity, &curr_array_use);
-    //store_string(s3, &array, &curr_array_capacity, &curr_array_use);
-    //store_string(s4, &array, &curr_array_capacity, &curr_array_use);
-    //store_string(s5, &array, &curr_array_capacity, &curr_array_use);
-    //store_string(s6, &array, &curr_array_capacity, &curr_array_use);
-    //store_string(s7, &array, &curr_array_capacity, &curr_array_use);
+    store_string(s3, &array, &curr_array_capacity, &curr_array_use);
+    store_string(s4, &array, &curr_array_capacity, &curr_array_use);
+    store_string(s5, &array, &curr_array_capacity, &curr_array_use);
+    store_string(s6, &array, &curr_array_capacity, &curr_array_use);
+    store_string(s7, &array, &curr_array_capacity, &curr_array_use);
     end = clock();
     time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
 
@@ -122,23 +122,11 @@ void store_string(char* s, char** array_ptr, size_t* curr_array_capacity, size_t
             *array_ptr = new_array;
         } 
 
-        /* The searching algorithm for sorted strings could be inserted here. */
+        /* Searches for the correct sub-block to insert the new string block */
         if (!insert_sorted(s, *array_ptr, curr_array_capacity, curr_array_use)) {
             fprintf(stderr ,"String not successfully inserted\n");
             return;
         }
-
-
-        ///* Store length, string and counter in correct sub-block position */
-        //*(int *)(*array_ptr + *curr_array_use)  = length; // treat location as an integer
-        //strcpy(*array_ptr + *curr_array_use + sizeof(int), s); 
-        //*(int *)(*array_ptr + *curr_array_use + sizeof(int) + length + 1) = INITIAL_COUNT; // treat location as an integer 
-        //*(*array_ptr + *curr_array_use + 2 * sizeof(int) + length + 1) = '\0'; // Set a nullbyte at the end of the length, string, counter block
-        //
-        ///* Update currently used bytes of array */
-        //(*curr_array_use) += data_size;
-
-
     }
 }
 
