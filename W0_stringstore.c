@@ -5,7 +5,7 @@
 
 /* Global Variables */
 #define MAX_STRING_BYTES 64
-#define INITIAL_ARRAY_BYTES 30
+#define INITIAL_ARRAY_BYTES 15
 #define DOUBLE_SIZE 2
 #define INITIAL_COUNT 1
 
@@ -15,7 +15,7 @@ void print_array_strings(char*);
 int search_counter(char*, char*, size_t*, size_t*);
 int check_valid_string(char*);
 int insert_sorted(char*, char*, size_t*, size_t*);
-void update_array_size(int*, char**, size_t*, size_t*);
+void update_array_size(size_t*, char**, size_t*, size_t*);
 
 /* Haven't done: String is not in sorted order. Not sure if current code is robust enough. */
 // Note that you can combine the search and insertion function together. If can't find it find it alphabetically, insert it immediately
@@ -106,21 +106,8 @@ void store_string(char* s, char** array_ptr, size_t* curr_array_capacity, size_t
     /* Store string as new data for the array. Double the memory size if too small */
     else {
         
-        /* Double array size if new string cannot fit. Free old orray and create new one. */
-        /* While loop caters for initially small array sizes. Since data size may be relatively larger than array capacity */
-        while (*curr_array_use + data_size + 1 > *curr_array_capacity) { // if equal, curr_array_capacity can exactly fit 
-
-            printf("Looks like array is full... Increasing size.\n");
-
-            char* new_array = realloc(*array_ptr, DOUBLE_SIZE * (*curr_array_capacity)); 
-            if (!new_array) {
-                fprintf(stderr, "New Memory allocation unsucessful!\n");
-                return;
-            }
-            /* Update curr_array capacity and initial array pointer in main */
-            *curr_array_capacity *= 2;
-            *array_ptr = new_array;
-        } 
+        /* Increase size of array if required */
+        update_array_size(&data_size, array_ptr, curr_array_capacity, curr_array_use);
 
         /* Searches for the correct sub-block to insert the new string block */
         if (!insert_sorted(s, *array_ptr, curr_array_capacity, curr_array_use)) {
@@ -318,9 +305,22 @@ int insert_sorted(char* s, char* arr, size_t* curr_array_capacity, size_t* curr_
     return 1;
 }
 
-// This function has not been completed 
 /* Function that checks and doubles array size of too small. */
-void update_array_size(int* data_size, char** array_ptr, size_t* curr_array_capacity, size_t* curr_array_use)  {
+void update_array_size(size_t* data_size, char** array_ptr, size_t* curr_array_capacity, size_t* curr_array_use)  {
+    
+    while(*curr_array_use + *data_size + 1 > *curr_array_capacity) {
+        printf("Looks like array is full... Doubling size.\n");
+
+        /* Double size of array and copy block. Update relevant variables */
+        char* new_array = realloc(*array_ptr, DOUBLE_SIZE * (*curr_array_capacity)); 
+        if (!new_array) {
+            fprintf(stderr, "New Memory allocation unsucessful!\n");
+            return;
+        }
+        /* Update curr_array capacity and initial array pointer in main */
+        *curr_array_capacity *= 2;
+        *array_ptr = new_array;
+    }
 
     return;
 } 
