@@ -12,7 +12,6 @@
 /* Function Prototypes */
 void store_string(char*, char**, size_t*, size_t*);
 void print_array_strings(char*);
-int search_counter(char*, char*, size_t*, size_t*);
 int check_valid_string(char*);
 int insert_sorted(char*, char**, size_t*, size_t*);
 void update_array_size(size_t*, char**, size_t*, size_t*);
@@ -122,69 +121,6 @@ int check_valid_string(char* s) {
         return 0;
     }
     return 1;
-}
-
-
-
-/* This function searches the array for a particular string. If the string is found, update the counter. Otherwise return 0 (string not found) */
-// Think about whether to output position of the nullbyte to save some time at the end
-int search_counter(char* string, char* array, size_t* curr_array_capacity, size_t* curr_array_use) {
-    /* Null string or array */
-    if (!string || !array) {
-        fprintf(stderr, "Empty String or Emtpy Array!\n");
-        return 0;
-    } 
-
-//    /* This case shouldn't happen. Before insertion, string is checked for emptiness and max bytes */
-//    if (strlen(string) == 0) {
-//        fprintf(stderr, "Searched string is empty\n");
-//        return 0;
-//    }
-
-    /* Search for the string inside the array */
-    size_t offset = 0;
-    int stored_length, stored_counter; 
-    char* stored_string;
-
-    /* Iterate over all strings of the array to find a string match (case 1 doesn't never false, unless sub-block stored incorrectly)*/
-    while(offset < (*curr_array_capacity) & *(array + offset) != '\0') { 
-
-        /* Store string length, string, and counter */
-        memcpy(&stored_length, array + offset, sizeof(int)); 
-        offset += sizeof(int);
-
-        stored_string = (char*)malloc(stored_length + 1);
-        if (!stored_string){
-            fprintf(stderr, "Memory not successfully allocated.\n");
-            return 0;
-        }
-
-        memcpy(stored_string, array + offset, stored_length + 1);
-        offset += stored_length + 1;
-
-        /* If string found in the array, update the counter. Otherwise continue searching. */ 
-        if (strcmp(string, stored_string) == 0) {
-
-            /* Update the counter for the correct string in the array. */
-            memcpy(&stored_counter, array + offset, sizeof(int));
-            stored_counter++;
-            memcpy(array + offset, &stored_counter, sizeof(int));
-            return 1;
-        }
-        /* Otherwise, update offset */
-        else {
-            offset += sizeof(int);
-        }
-        free(stored_string);
-    }
-    
-    /* Offset should stop at the last nullbyte */
-    if (*curr_array_use != offset) {
-        fprintf(stderr, "Currently used is not consistent with offset!\n");
-        return 0;
-    }
-    /* String is not found */
-    return 0; 
 }
 
 
