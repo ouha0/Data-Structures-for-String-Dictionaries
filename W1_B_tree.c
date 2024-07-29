@@ -32,7 +32,7 @@ char* skip_ptr_block_start(char**, int);
 void move_ptr_block(char*, char*, int); 
 void skip_initialization_var(char**);
 char* init_variable_offset(char*);
-
+void move_current_sequence(char**, char**, bool);
 
 /* Plan:    
  * Create empty tree
@@ -169,8 +169,11 @@ void move_ptr_block(char* y_child_ptr, char* z_child_ptr, int end) {
     char* z_child_cmp = init_variable_offset(z_child_ptr);
     
     /* Copy ptr key from y to z, and delete from y */
+    // NOT DONE YET: THE FIRST ITERATION REQUIRES NULL-BYTE AT END OF Y
     if (!y_is_leaf) {
-
+        for (int i = 0; i < end; i++) {
+            move_current_sequence(&z_child_cmp, &y_child_cmp, y_is_leaf);
+        }
 
     }
     else { // Sequence of null pointers and keys
@@ -183,3 +186,65 @@ void move_ptr_block(char* y_child_ptr, char* z_child_ptr, int end) {
 char* init_variable_offset(char* node) {
     return node += INIT_VAR_SIZE;
 }
+
+/* Note that this function is kinda wrong atm, it assumes the first iteration, not all iterations. We need the null-byte at the end of y */
+void move_current_sequence(char** z_child_ptr, char** y_child_ptr_del, bool y_is_leaf) {
+    int tmp_length;
+
+    /* if leaf node */
+    if (!y_is_leaf) {
+
+        /* Copy pointer from y to z, end y with null-byte, clear memory of y and update y and z pointer position */
+        *(char**)(*z_child_ptr) = *y_child_ptr_del; // Copy pointer from y_child to z_child and delete pointer
+        memset(*y_child_ptr_del, 0xFF, sizeof(char*)); // Set memory of y to 0xFF to indicate unused memory
+
+        *z_child_ptr += sizeof(char*); *y_child_ptr_del += sizeof(char*); //update offset so y and z points to block
+
+        /* Copy block from y to z, and delete y block */
+
+        /* Copy integer from y to z, clean memory in y */
+        tmp_length = *(int*)(*y_child_ptr_del); *(int*)(*z_child_ptr) = tmp_length;
+        memset(*y_child_ptr_del, 0xFF, sizeof(int));
+
+        *z_child_ptr += sizeof(int); *y_child_ptr_del += sizeof(int);
+        
+        /* Copy the rest of the block: the string with null byte and the counter */
+        memcpy(*z_child_ptr, *y_child_ptr_del, tmp_length + 1 + sizeof(int));
+        memset(*y_child_ptr_del, 0xFF, tmp_length + 1 + sizeof(int));
+        *z_child_ptr += tmp_length + 1 + sizeof(int); *y_child_ptr_del += tmp_length + 1 + sizeof(int);
+
+
+
+    }
+    else { // if y is leaf (z is also leaf)
+        
+        /* Copy pointer from y to z, end y with null-byte, clear memory of y and update y and z pointer position */
+        *(char**)(*z_child_ptr) = NULL; // Since leaf node, z_child should have no children 
+        
+        /* Sanity check: confirm that child y has no children */
+        if (*(char**)(*y_child_ptr_del) != NULL) {
+            fprintf(stderr, "y child pointer should be a NULL pointer\n");
+            return;
+        }
+        memset(*y_child_ptr_del, 0xFF, sizeof(char*)); // Set memory of y to 0xFF to indicate unused memory
+        *z_child_ptr += sizeof(char*); *y_child_ptr_del += sizeof(char*); //update offset so y and z points to block
+
+        
+
+    }
+}
+
+
+
+
+/* Some saved code 
+ *
+ *        Copy pointer from y to z, end y with null-byte, clear memory of y and update y and z pointer position 
+ *
+ *        *(char**)(*z_child_ptr) = *y_child_ptr_del; *(char*)(*y_child_ptr_del) = '\0'; // Copy pointer from y_child to z_child and delete pointer
+ *        memset(*y_child_ptr_del + sizeof(char), 0xFF, sizeof(char*) - sizeof(char)); // Set memory of y to 0xFF to indicate unused memory
+ *
+ *
+ *
+ *
+ * */
