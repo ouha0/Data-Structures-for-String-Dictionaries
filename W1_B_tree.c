@@ -39,6 +39,7 @@ size_t get_node_capacity(char*);
 size_t get_node_use(char*);
 bool check_update_node_size(char**, size_t);
 void update_key_count(char**, int);
+void parent_node_push_up(char**, char**, int);
 
 /* Plan:    
  * Create empty tree
@@ -128,7 +129,7 @@ char* B_tree_split_child(char* node, int index) {
     /* Update the parent node, move mid to end ptr block sequences to the right, and 
      * push middle y_node key up to parent */
     
-    parent_node_push_up(); // working on this now. Note that the last block of y has not been deleted yet
+    parent_node_push_up(&node, &child_y, T_DEGREE - 1); // working on this now. Note that the last block of y has not been deleted yet
 
 
     return NULL; // Temporarily here 
@@ -177,25 +178,26 @@ char* skip_ptr_block_start(char** offset_ptr, int index) {
 
 /* Function that moves the first "end" keys from y to z. (It deletes the ptr and blocks accordingly) */
 // Note that *y_child_ptr and *z_child_ptr points to start of child nodes
+// Assumes that y_child node is full
 
 void move_ptr_block(char** y_child_ptr, char** z_child_ptr, int end) {
     bool y_is_leaf = *(bool*)(*y_child_ptr);
     char* y_child_cmp = *y_child_ptr; char* z_child_cmp = *z_child_ptr;
     
     /* Skips first T_DEGREE - 1 keys of y_child_cmp pointer. Moves z_child_cmp pointer to first ptr_key */
-    skip_ptr_block_start(&y_child_cmp, T_DEGREE - 1);
+    skip_ptr_block_start(&y_child_cmp, T_DEGREE);
     skip_initialization_var(&z_child_cmp);
 
     char* tmp_y = y_child_cmp; // save start address of the y_child ptr block sequence to be removed
     
     /* Copy ptr key from y to z, and delete from y */
-    move_current_sequence(&z_child_cmp, z_child_ptr, &y_child_cmp, y_is_leaf, 0);
+    // move_current_sequence(&z_child_cmp, z_child_ptr, &y_child_cmp, y_is_leaf, 0);
 
 
     // This is not the last block of y, haven't deleted middle key yet 
     // *tmp_y = '\0'; //Store last byte of y_child_ptr (initial pointer) as null-byte for first iteration
 
-    for (int i = 1; i < end; i++) {
+    for (int i = 0; i < end; i++) {
         move_current_sequence(&z_child_cmp, z_child_ptr, &y_child_cmp, y_is_leaf, i);
     }
     move_final_pointer(&z_child_cmp, z_child_ptr, &y_child_cmp, y_is_leaf, end);
@@ -374,6 +376,31 @@ void update_key_count(char** node_start, int key_count) {
     *(int*)(*node_start + sizeof(bool)) = key_count;
     return;
 }
+
+
+/* Function that moves last y_child key to x_node(parent) and shifts ptr key sequence to the right */
+void parent_node_push_up(char** x_node, char** y_node, int index) {
+    char* tmp_y = *y_node; char* tmp_x = *x_node;
+    
+    /* Retrieve key from y and clear relevant memory in y */ 
+    skip_ptr_block_start(&tmp_y, index); // skip first index ptr key alternating sequence 
+    tmp_y += sizeof(char*); // Skip next pointer so tmp_y points to required key
+    
+    /* Read key from y_node */
+    int tmp_length, tmp_counter; char* tmp_str; 
+    read_next_key(&tmp_y, &tmp_length, &tmp_str, &tmp_counter);
+
+
+
+    /* Shift node_x (parent) to the right by sizeof(middle y key) and insert middle y key into x_node */
+
+
+
+    /* Update node_x number of keys */
+}
+
+
+/* Function that reads next key from the node (should this function also, delete the key?) */
 
 /* Some saved code 
  *
