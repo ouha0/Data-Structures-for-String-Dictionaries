@@ -29,13 +29,14 @@ char* skip_ptr_block(char**);
 char* get_child(char*, int);
 void read_ptr_block(char*, char*, int);
 char* skip_ptr_block_start(char**, int);
-void move_ptr_block(char*, char*, int); 
+void move_ptr_block(char**, char**, int); 
 void skip_initialization_var(char**);
 char* init_variable_offset(char*);
-void move_current_sequence(char**, char**, bool);
+void move_current_sequence(char**, char**, char**, bool);
 void update_node_capacity(char*, size_t);
 size_t get_node_capacity(char*);
 size_t get_node_use(char*);
+void check_update_node_size(char**, size_t);
 
 /* Plan:    
  * Create empty tree
@@ -119,7 +120,7 @@ char* B_tree_split_child(char* node, int index) {
     
 
     /* Move last (T_degree - 1) keys from child_y to child_z */
-    move_ptr_block(new_child_z, child_y, T_DEGREE - 1); // Move the pointer key sequence from y to z
+    move_ptr_block(&new_child_z, &child_y, T_DEGREE - 1); // Move the pointer key sequence from y to z
 
 
     return NULL; // Temporarily here 
@@ -140,7 +141,7 @@ char* get_child(char* node, int index) {
     return offset; // return offset, which now points to the node.child_index 
 }
 
-/* Function that skips the current pointer block and changes the offset ptr accordingly */
+/* Function that skips the current pointer block  sequence and changes the offset ptr accordingly */
 char* skip_ptr_block(char** offset_ptr) {
     if (**offset_ptr == '\0') {
         printf("Not supposed to happen; empty tree or at the end of ptr block alternating sequence.\n");
@@ -167,23 +168,24 @@ char* skip_ptr_block_start(char** offset_ptr, int index) {
 }
 
 /* Function that moves the first "end" keys from y to z. (It deletes the ptr and blocks accordingly) */
-// Think this requires a double pointer...
-void move_ptr_block(char* y_child_ptr, char* z_child_ptr, int end) {
-    bool y_is_leaf = *(bool*)(y_child_ptr);
-    char* y_child_cmp;
+// Note that *y_child_ptr and *z_child_ptr points to start of child nodes
+
+void move_ptr_block(char** y_child_ptr, char** z_child_ptr, int end) {
+    bool y_is_leaf = *(bool*)(*y_child_ptr);
+    char* y_child_cmp = *y_child_ptr; char* z_child_cmp = *z_child_ptr;
     
     /* Skips first T_DEGREE - 1 keys of y_child_cmp pointer. Moves z_child_cmp pointer to first ptr_key */
     skip_ptr_block_start(&y_child_cmp, T_DEGREE - 1);
-    char* z_child_cmp = init_variable_offset(z_child_ptr);
+    skip_initialization_var(&z_child_cmp);
 
-    char* tmp_y = y_child_cmp; // Start address of the y_child ptr block sequence to be removed
+    char* tmp_y = y_child_cmp; // save start address of the y_child ptr block sequence to be removed
     
     /* Copy ptr key from y to z, and delete from y */
-    move_current_sequence(&z_child_ptr, &y_child_cmp, y_is_leaf);
+    move_current_sequence(&z_child_cmp, z_child_ptr, &y_child_cmp, y_is_leaf);
     *tmp_y = '\0'; //Store last byte of y_child_ptr (initial pointer) as null-byte for first iteration
 
     for (int i = 1; i < end; i++) {
-        move_current_sequence(&z_child_cmp, &y_child_cmp, y_is_leaf);
+        move_current_sequence(&z_child_cmp, z_child_ptr, &y_child_cmp, y_is_leaf);
     }
     *z_child_cmp = '\0'; // Store last byte of z_child (pointer updated) as null-byte when iteration finished
 
@@ -196,8 +198,13 @@ char* init_variable_offset(char* node) {
 
 /* Function that moves the ptr block from y_child_ptr_del to z_child_ptr, clear the memory for y and updates z_child and y_child_ptr_del pointer */
 // NOT DONE YET: If array size too small, double the size for z_child. Seems like the function needs array bytes used by child_z. It requires the pointer to the start of the node...
-void move_current_sequence(char** z_child_ptr, char** y_child_ptr_del, bool y_is_leaf) {
+// Wrong, when we change the node size, its a different memory address, so we no longer can use z_child_ptr, the memory is gone. 
+// Rather than saving memory addresses, we should use offsets (size_t...)
+void move_current_sequence(char** z_child_ptr, char** z_child_init, char** y_child_ptr_del, bool y_is_leaf) {
     int tmp_length;
+    
+    /* Double byte size of child z node if cannot fit children pointer */
+    check_update_node_size(z_child_init, sizeof(char*));
 
     /* if not leaf node */
     if (!y_is_leaf) {
@@ -218,19 +225,24 @@ void move_current_sequence(char** z_child_ptr, char** y_child_ptr_del, bool y_is
         }
     }
 
-        /* Copy block data from y to z, and clear memory in y */
-        memset(*y_child_ptr_del, 0xFF, sizeof(char*)); // Set memory of y to 0xFF to indicate unused memory
-        *z_child_ptr += sizeof(char*); *y_child_ptr_del += sizeof(char*); //update offset so y and z points to block
+    /* Copy block data from y to z, and clear memory in y */
+    memset(*y_child_ptr_del, 0xFF, sizeof(char*)); // Set memory of y to 0xFF to indicate unused memory
+    *z_child_ptr += sizeof(char*); *y_child_ptr_del += sizeof(char*); //update offset so y and z points to block
 
-        tmp_length = *(int*)(*y_child_ptr_del); *(int*)(*z_child_ptr) = tmp_length;
-        memset(*y_child_ptr_del, 0xFF, sizeof(int)); // Clear y memory
+    tmp_length = *(int*)(*y_child_ptr_del); 
 
-        *z_child_ptr += sizeof(int); *y_child_ptr_del += sizeof(int);
-        
-        /* Copy the rest of the block: the string with null byte and the counter and clear y_child memory */
-        memcpy(*z_child_ptr, *y_child_ptr_del, tmp_length + 1 + sizeof(int));
-        memset(*y_child_ptr_del, 0xFF, tmp_length + 1 + sizeof(int));
-        *z_child_ptr += tmp_length + 1 + sizeof(int); *y_child_ptr_del += tmp_length + 1 + sizeof(int); //offset to next ptr block sequence
+    /* Double size of z_child byte array if cannot fit block (strlength, string, counter and null-byte) */
+    check_update_node_size(z_child_init, sizeof(int) + tmp_length + 1 + sizeof(int) + 1);
+
+    *(int*)(*z_child_ptr) = tmp_length;
+    memset(*y_child_ptr_del, 0xFF, sizeof(int)); // Clear y memory
+
+    *z_child_ptr += sizeof(int); *y_child_ptr_del += sizeof(int);
+    
+    /* Copy the rest of the block: the string with null byte and the counter and clear y_child memory */
+    memcpy(*z_child_ptr, *y_child_ptr_del, tmp_length + 1 + sizeof(int));
+    memset(*y_child_ptr_del, 0xFF, tmp_length + 1 + sizeof(int));
+    *z_child_ptr += tmp_length + 1 + sizeof(int); *y_child_ptr_del += tmp_length + 1 + sizeof(int); //offset to next ptr block sequence
 }
 
 /* Function that updates the node size if required */
