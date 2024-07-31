@@ -39,7 +39,7 @@ size_t get_node_capacity(char*);
 size_t get_node_use(char*);
 bool check_update_node_size(char**, size_t);
 void update_key_count(char**, int);
-void parent_node_push_up(char**, char**, int, int);
+void parent_node_push_up(char**, char**, char*, int, int);
 int read_clear_next_key(char**, int*, char**, int*);
 int read_clear_final_key(char**, int*, char**, int*);
 
@@ -133,7 +133,7 @@ char* B_tree_split_child(char* node, int index_i) {
     /* Update the parent node, move mid to end ptr block sequences to the right, and 
      * push middle y_node key up to parent */
     
-    parent_node_push_up(&node, &child_y, T_DEGREE - 1, index_i); // working on this now. Note that the last block of y has not been deleted yet
+    parent_node_push_up(&node, &child_y, new_child_z, T_DEGREE - 1, index_i); // working on this now. Note that the last block of y has not been deleted yet
 
 
     return NULL; // Temporarily here 
@@ -338,6 +338,11 @@ size_t get_node_use(char* node) {
     return node_use;
 }
 
+/* Function that takes node (start of it) and outputs current total number of keys */
+int get_num_keys(char* node) {
+    return *(int*)(node + sizeof(bool));
+}
+
 /* Function that copies last child pointer from y node to z. Also clears memory for y */
 void move_final_pointer(char** z_child_ptr, char** z_child_init, char** y_child_ptr_del,
                         bool y_is_leaf, int final) {
@@ -386,7 +391,7 @@ void update_key_count(char** node_start, int key_count) {
 
 
 /* Function that moves last y_child key to x_node(parent) and shifts ptr key sequence to the right */
-void parent_node_push_up(char** x_node, char** y_node, int degree_t, int index_i) {
+void parent_node_push_up(char** x_node, char** y_node, char* z_node, int degree_t, int index_i) {
     char* tmp_y = *y_node;
     
     /* Retrieve key from y and clear relevant memory in y */ 
@@ -416,7 +421,8 @@ void parent_node_push_up(char** x_node, char** y_node, int degree_t, int index_i
     tmp_x += sizeof(char*); // tmp_x now points to the address of x.key_i
      
     // Shift array to the right by new_key_size. Number of bytes using node_used + null-byte - new_key_offset
-    memmove(tmp_x + new_key_size, tmp_x, get_node_use(*x_node) + 1 - new_key_offset);
+    // THIS OFFSET IS WRONG, WE ALSO NEED SPACE FOR EXTRA CHILD POINTER TO X
+    memmove(tmp_x + new_key_size + sizeof(char*), tmp_x, get_node_use(*x_node) + 1 - (new_key_offset + sizeof(char*)));
 
 
 
@@ -429,9 +435,12 @@ void parent_node_push_up(char** x_node, char** y_node, int degree_t, int index_i
 
     *(int*)(tmp_x) = tmp_counter; tmp_x += sizeof(int);
 
-
+    *(char**)(tmp_x) = z_node; tmp_x += sizeof(char*);
 
     /* Update node_x number of keys */
+    update_key_count(x_node, get_num_keys(*x_node) + 1);
+
+    return;
 }
 
 
