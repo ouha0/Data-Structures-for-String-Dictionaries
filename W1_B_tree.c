@@ -25,12 +25,12 @@
 /* Function Prototypes */
 char* initialize_node(int, bool, int);
 char* B_tree_create(void);
-char* skip_ptr_block(char**);
+size_t skip_ptr_block(char**);
 char* get_child(char*, int);
 void read_ptr_block(char*, char*, int);
-char* skip_ptr_block_start(char**, int);
+size_t skip_ptr_block_start(char**, int);
 void move_ptr_block(char**, char**, int); 
-void skip_initialization_var(char**);
+size_t skip_initialization_var(char**);
 char* init_variable_offset(char*);
 void move_current_sequence(char**, char**, char**, bool, int);
 void move_final_pointer(char**, char**, char**, bool, int);
@@ -39,7 +39,10 @@ size_t get_node_capacity(char*);
 size_t get_node_use(char*);
 bool check_update_node_size(char**, size_t);
 void update_key_count(char**, int);
-void parent_node_push_up(char**, char**, int);
+void parent_node_push_up(char**, char**, int, int);
+int read_clear_next_key(char**, int*, char**, int*);
+int read_clear_final_key(char**, int*, char**, int*);
+
 
 /* Plan:    
  * Create empty tree
@@ -102,18 +105,19 @@ char* initialize_node(int degree_t, bool is_leaf, int num_keys) {
 
 /* Function moves a pointer at start of node past the initialization variables to ptr key alternating sequence */
 // For maintainability
-void skip_initialization_var(char** tmp_ptr){
+size_t skip_initialization_var(char** tmp_ptr){
     (*tmp_ptr) += INIT_VAR_SIZE;
+    return INIT_VAR_SIZE;
 }
 
 /* Function that splits a full node in a B tree. It takes parent node and child node index as input */
 /* Note that node is the parent, child_y is the "left child", child_z is the "right child" */
-char* B_tree_split_child(char* node, int index) {
+char* B_tree_split_child(char* node, int index_i) {
     char* offset = node; // 20 is the sizeof(initialization variables)
     skip_initialization_var(&offset);
 
     /* Search for the ith child (same as read i - 1 keys) */
-    char* child_index_address = get_child(node, index);
+    char* child_index_address = get_child(node, index_i);
     char* child_y = *(char**)(child_index_address); // LHS child 
     
     /* First 4 bytes of child is is_leaf boolean */
@@ -129,7 +133,7 @@ char* B_tree_split_child(char* node, int index) {
     /* Update the parent node, move mid to end ptr block sequences to the right, and 
      * push middle y_node key up to parent */
     
-    parent_node_push_up(&node, &child_y, T_DEGREE - 1); // working on this now. Note that the last block of y has not been deleted yet
+    parent_node_push_up(&node, &child_y, T_DEGREE - 1, index_i); // working on this now. Note that the last block of y has not been deleted yet
 
 
     return NULL; // Temporarily here 
@@ -151,29 +155,32 @@ char* get_child(char* node, int index) {
 }
 
 /* Function that skips the current pointer block  sequence and changes the offset ptr accordingly */
-char* skip_ptr_block(char** offset_ptr) {
+size_t skip_ptr_block(char** offset_ptr) {
     if (**offset_ptr == '\0') {
         printf("Not supposed to happen; empty tree or at the end of ptr block alternating sequence.\n");
-        return NULL;
+        return 0;
     }
 
     /* Skip first child pointer, and skip the block (strlength, string and counter) */
     *offset_ptr += sizeof(char*);
-    int tmp_str_length = *(int*)(*offset_ptr); (*offset_ptr) += sizeof(int);
+    int tmp_str_length = *(int*)(*offset_ptr);
+    (*offset_ptr) += sizeof(int);
     (*offset_ptr) += tmp_str_length + 1 + sizeof(int); // skip string including null-byte and integer counter 
 
-    return NULL;
+    return sizeof(char*) + sizeof(int) + tmp_str_length + 1 + sizeof(int);
 }
 
 /* Function that skips the initial variables, and the next "index" number of ptr block sequences. It updates offset to the appropriate address */
-char* skip_ptr_block_start(char** offset_ptr, int index) {
-    skip_initialization_var(offset_ptr); // Skip the initial variables
+size_t skip_ptr_block_start(char** node_start_ptr, int index) {
+    /* Keep track of offset from node_start */
+    size_t count;
+    count += skip_initialization_var(node_start_ptr); // Skip the initial variables
     
     /* Skip the first "index" pointer block sequences */
     for (int i = 0; i < index; i++) {
-        skip_ptr_block(offset_ptr);
+        count += skip_ptr_block(node_start_ptr);
     }
-    return NULL;
+    return count;
 }
 
 /* Function that moves the first "end" keys from y to z. (It deletes the ptr and blocks accordingly) */
@@ -260,7 +267,7 @@ void move_current_sequence(char** z_child_ptr, char** z_child_init, char** y_chi
      * If node memory is reallocated, update z_child_cmp memory address accordingly based on block_offset index 
      * Also offset by char* since the child pointer of z_child was read 
      * */
-    if(check_update_node_size(z_child_init, sizeof(int) + tmp_length + 1 + sizeof(int) + 1)) {
+    if(check_update_node_size(z_child_init, sizeof(int) + tmp_length + 1 + sizeof(int))) {
         *z_child_ptr = *z_child_init;
         skip_ptr_block_start(z_child_ptr, block_offset);
         *z_child_ptr += sizeof(char*);
@@ -379,20 +386,48 @@ void update_key_count(char** node_start, int key_count) {
 
 
 /* Function that moves last y_child key to x_node(parent) and shifts ptr key sequence to the right */
-void parent_node_push_up(char** x_node, char** y_node, int index) {
-    char* tmp_y = *y_node; char* tmp_x = *x_node;
+void parent_node_push_up(char** x_node, char** y_node, int degree_t, int index_i) {
+    char* tmp_y = *y_node;
     
     /* Retrieve key from y and clear relevant memory in y */ 
-    skip_ptr_block_start(&tmp_y, index); // skip first index ptr key alternating sequence 
+    skip_ptr_block_start(&tmp_y, degree_t); // skip first index ptr key alternating sequence 
     tmp_y += sizeof(char*); // Skip next pointer so tmp_y points to required key
     
-    /* Read key from y_node */
+    /* Read final key from y_node. (need to know size of key to know right shift offset). Add nullbyte at end of child_y */
     int tmp_length, tmp_counter; char* tmp_str; 
-    read_next_key(&tmp_y, &tmp_length, &tmp_str, &tmp_counter);
-
-
-
+    if(!read_clear_final_key(&tmp_y, &tmp_length, &tmp_str, &tmp_counter)) {
+        fprintf(stderr, "Failed to read next key in child_y for parent x, something is wrong\n");
+        return;
+    }
+    size_t new_key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
+    
+    /* If new key cannot fit into node_x, double the array size of node x (parent) */
+    if (check_update_node_size(x_node, new_key_size)) {
+        printf("x_node size doubled.\n");
+    }
+    char* tmp_x = *x_node;
+        
     /* Shift node_x (parent) to the right by sizeof(middle y key) and insert middle y key into x_node */
+    // Go to correct positon address of node_x to insert middle y key 
+    size_t new_key_offset;
+    new_key_offset = skip_ptr_block_start(&tmp_x, index_i - 1);
+
+    new_key_offset += sizeof(char*);
+    tmp_x += sizeof(char*); // tmp_x now points to the address of x.key_i
+     
+    // Shift array to the right by new_key_size. Number of bytes using node_used + null-byte - new_key_offset
+    memmove(tmp_x + new_key_size, tmp_x, get_node_use(*x_node) + 1 - new_key_offset);
+
+
+
+    // THIS FUNCTION CAN PROBABLY BE REFINED TO A HELPER FUNCTION
+    // Insert new key into x (NODE DONE YET: Update child pointer from x to z)
+    *(int*)(tmp_x) = tmp_length; tmp_x += sizeof(int); 
+
+    memcpy(tmp_x, tmp_str, tmp_length + 1);
+    free(tmp_str); tmp_x += tmp_length + 1;
+
+    *(int*)(tmp_x) = tmp_counter; tmp_x += sizeof(int);
 
 
 
@@ -401,6 +436,57 @@ void parent_node_push_up(char** x_node, char** y_node, int index) {
 
 
 /* Function that reads next key from the node (should this function also, delete the key?) */
+int read_clear_next_key(char** child_y_ptr, int* length_ptr, char** str_ptr, int* counter_ptr) {
+    /* Store length of string. Clear child_y_ptr memory and add offset */
+    *length_ptr = *(int*)(*child_y_ptr); 
+    memset(*child_y_ptr, 0xFF, sizeof(int));
+    *child_y_ptr += sizeof(int);
+
+    /* Allocate memory to str pointer and store string. Clear memory of child_y and increase offset */
+    *str_ptr = (char*)malloc(sizeof(char) * (*length_ptr + 1));
+    if (!*str_ptr) {
+        fprintf(stderr, "memory not allocated to *str_ptr, something is wrong\n");
+        return 0;
+    }
+    memcpy(*str_ptr, *child_y_ptr, *length_ptr + 1); 
+    memset(*child_y_ptr, 0xFF, *length_ptr + 1);
+    *child_y_ptr += *length_ptr + 1;
+
+    /* Store counter. Clear memory and increase child_y_ptr offset by size integer */
+    *counter_ptr = *(int*)(*child_y_ptr);
+    memset(*child_y_ptr, 0xFF, sizeof(int));
+    *child_y_ptr += sizeof(int);
+
+    return 1;
+
+}
+/* Function that reads next key from the node (should this function also, delete the key?) */
+int read_clear_final_key(char** child_y_ptr, int* length_ptr, char** str_ptr, int* counter_ptr) {
+    /* Store length of string. Clear child_y_ptr memory and add offset */
+    *length_ptr = *(int*)(*child_y_ptr); 
+    *(char*)(*child_y_ptr) = '\0';
+    memset(*child_y_ptr + 1, 0xFF, sizeof(int) - 1);
+    *child_y_ptr += sizeof(int);
+
+    /* Allocate memory to str pointer and store string. Clear memory of child_y and increase offset */
+    *str_ptr = (char*)malloc(sizeof(char) * (*length_ptr + 1));
+    if (!*str_ptr) {
+        fprintf(stderr, "memory not allocated to *str_ptr, something is wrong\n");
+        return 0;
+    }
+    memcpy(*str_ptr, *child_y_ptr, *length_ptr + 1); 
+    memset(*child_y_ptr, 0xFF, *length_ptr + 1);
+    *child_y_ptr += *length_ptr + 1;
+
+    /* Store counter. Clear memory and increase child_y_ptr offset by size integer */
+    *counter_ptr = *(int*)(*child_y_ptr);
+    memset(*child_y_ptr, 0xFF, sizeof(int));
+    *child_y_ptr += sizeof(int);
+
+    return 1;
+
+}
+
 
 /* Some saved code 
  *
