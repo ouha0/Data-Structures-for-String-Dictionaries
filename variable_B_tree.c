@@ -50,15 +50,10 @@ int read_clear_final_key(char**, int*, char**, int*);
  * B-tree split child
  * B-tree insert and B-tree insert non-full
  * Not yet: B-tree delete key
- *
  * */
 
 /* Problems:
  * Need to think of node structure: num_keys (probably not using), is_leaf (bool is size_t 4, same as int)
- *
- *
- *
- *
  * */
 
 /* Node structure: is_leaf(boolean), number of keys(int), degree of t(int), node_size, node_use, [ptr, block alternating sequence] 

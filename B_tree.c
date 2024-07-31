@@ -18,10 +18,23 @@
 
 /* Parameter choice */
 #define T_DEGREE 100
-#define NODE_SIZE 200
+#define NODE_SIZE 500
 
+
+/* Function Prototypes(main) */
+char* B_tree_create(void);
+void parent_node_push_up(char**, char**, char*, int, int);
+
+/* Function Prototypes (supplementary) */
+char* initialize_node(int, bool, int);
+size_t skip_initialization_var(char**);
+size_t get_node_capacity(char*);
+size_t get_node_use(char*);
 
 int main(int argc, char** argv) {
 
     return 0;
 }
+
+
+
