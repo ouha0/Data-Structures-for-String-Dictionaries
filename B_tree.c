@@ -20,3 +20,8 @@
 #define T_DEGREE 100
 #define NODE_SIZE 200
 
+
+int main(int argc, char** argv) {
+
+    return 0;
+}
