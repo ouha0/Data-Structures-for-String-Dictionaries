@@ -65,11 +65,6 @@ int main(int argc, char** argv) {
 
     /* Initialze B-tree root */
     char* tree_root = B_tree_create();
-
-    printf("The size of size_t is: %zu bytes\n", sizeof(size_t));
-
-    printf("The size of int is: %zu bytes\n", sizeof(int));
-
     return 0;
 }
 
