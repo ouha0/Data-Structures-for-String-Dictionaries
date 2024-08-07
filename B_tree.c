@@ -27,8 +27,10 @@
 char* B_tree_create(void);
 int B_tree_split_child(char*, char*);
 
+
 /* Function Prototypes (supplementary) */
 char* initialize_node(bool, size_t);
+size_t get_max_block_size(void);
 size_t get_node_capacity(char*);
 size_t get_node_use(char*);
 size_t get_init_param_offset(void);
@@ -36,10 +38,13 @@ size_t get_single_key_size(char*);
 size_t skip_single_block(char**);
 size_t skip_child_ptr(char**);
 size_t skip_single_key(char**);
+size_t move_ptr_to_ptr(char**, char*);
 size_t skip_initial_parameters(char**);
 bool node_is_leaf(char*);
 size_t skip_block_from_start(char**, int);
 size_t skip_key_to_key(char**);
+size_t move_mid_node(char**);
+int update_node_use(char*, size_t);
 
 
 /* Just some definitions:
@@ -75,6 +80,9 @@ char* B_tree_create(void) {
 
 /* Function that takes as input a non-full internal node x and full child node y of x. 
  * The function splits the child into two and adjusts x so that it has an extra child. */
+/* Note that we assume that the parent node can fit at least one maximum size block, so it
+ * is not full */
+
 int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Create new child node z (sibling of y) */
@@ -83,8 +91,69 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Find midpoint of node_y to copy to node_z */
     char* mid_ptr = node_y;
+    size_t y_mid_offset = move_mid_node(&mid_ptr); //middle key of y_node
+    
+    int tmp_length = *(int*)mid_ptr; // y_child middle key length
+    size_t key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
+    size_t insertion_offset = sizeof(char*) + key_size + sizeof(char*);
 
-    move_mid_node(&mid_ptr);
+
+    /* Move tmp_x ptr to node_y child address */
+    /* Insert middle key of y into x, and shift all blocks of node_x to the right */
+    char* tmp_x = node_x;
+    size_t key_offset = move_ptr_to_ptr(&tmp_x, node_y) + sizeof(char*);
+    memmove(tmp_x + insertion_offset, tmp_x + sizeof(char*), get_node_use(node_x) + 1 - key_offset);
+    tmp_x += sizeof(char*); *(int*)tmp_x = tmp_length; tmp_x += sizeof(int);
+    memcpy(tmp_x, mid_ptr + sizeof(int), tmp_length + 1);
+    tmp_x += tmp_length + 1;
+    *(int*)tmp_x = *(int*)(mid_ptr + sizeof(int) + tmp_length + 1);
+    tmp_x += sizeof(int);
+    memcpy(tmp_x, &child_z, sizeof(char*));
+    update_node_use(node_x, get_node_use(node_x) + key_size + sizeof(char*));
+    
+    /* Delete middle key in y and move RHS keys to child_z */
+    /* Clear memory of middle key and set null-byte */
+    memset(mid_ptr, 0xFF, key_size); 
+    *mid_ptr = '\0';
+
+    mid_ptr += key_size; y_mid_offset += key_size;
+
+    /* Move following blocks of node_y to child_z including the null-byte */
+    memmove(child_z + get_init_param_offset(), mid_ptr, get_node_use(node_y) + 1 - y_mid_offset);
+    memset(mid_ptr, 0xFF, get_node_use(node_y) + 1 - y_mid_offset);
+
+    update_node_use(child_z, get_node_use(child_z) + (get_node_use(node_y) - y_mid_offset));
+    update_node_use(node_y, y_mid_offset - key_size);
+
+    return 1;
+}
+
+
+/* Function that takes a char* subtree root node and key as input. 
+ * The function inserts the key into the correct position of the tree */
+int B_tree_insert(char* node, char* const str) {
+
+    /* Node will be full if we assume a MAX STRING BYTES */
+    if (get_node_use(node) + 1 + get_max_block_size() > NODE_SIZE) {
+
+        /* allocate s as the new root */
+        char* s = initialize_node(false, NODE_SIZE);
+        char* tmp = s;
+
+        skip_initial_parameters(&tmp);
+        memcpy(tmp, &node, sizeof(node)); // May need to fix other things, try understand this first
+
+
+    } else { 
+        // B_tree_insert_nonfull(NULL, str);
+    }
+
+    return 1;
+}
+
+/* Function that takes a non-full char* subtree, creates the key, and 
+ * inserts it in the correct position */
+int B_tree_insert_nonfull(char* node, char* const str) {
 
     return 1;
 }
@@ -93,7 +162,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
 /* Function that takes char** node_ptr as input, where *node_ptr points 
  * to the start of the node. The function moves *node_ptr to the middle key 
  * of the node. */
-int move_mid_node(char** node_ptr) {
+size_t move_mid_node(char** node_ptr) {
 
     /* Sanity Check */
     if (!node_ptr) {
@@ -158,9 +227,9 @@ int move_mid_node(char** node_ptr) {
     } 
 
     /* Update *node_ptr to start of the key that is closest to the NODE_MID_SIZE */
-    *node_ptr = *node_ptr + min_offset;
+    *node_ptr += min_offset;
 
-    return 1;
+    return min_offset;
 }
 
 
@@ -171,7 +240,7 @@ int move_mid_node(char** node_ptr) {
 char* initialize_node(bool is_leaf, size_t node_size) {
 
     /* Dynamically allocate memory for node */
-    char* node = (char*)malloc(NODE_SIZE * sizeof(char));
+    char* node = (char*)malloc(node_size * sizeof(char));
     char* tmp = node;
 
     /* Initialize the housekeeping variables for the node */
@@ -192,7 +261,7 @@ bool node_is_leaf(char* node) {
 
 /* Function that takes a node(char*) as input. The function outputs the 
  * the curr_node_size(size_t) used, which can be used as an offset */
-size_t get_curr_node_use(char* node) {
+size_t get_node_use(char* node) {
     node += sizeof(bool); // add offset to skip is_leaf boolean
     return *(size_t*)(node);
 }
@@ -200,6 +269,12 @@ size_t get_curr_node_use(char* node) {
 /* Function that takes no input and returns the size of initial parameters used for node housekeeping. */
 size_t get_init_param_offset(void) {
     return sizeof(bool) + sizeof(size_t); 
+}
+
+/* Function that takes no input and returns the maximum size of a block. (Based on MAX_STRING_BYTES key and ptr) */
+size_t get_max_block_size(void) {
+    /* String length integer + String with null-byte + counter + child_ptr */
+    return (sizeof(int) + MAX_STRING_BYTES + 1 + sizeof(int) + sizeof(char*));
 }
 
 /* Function that takes a double pointer node and offsets pointer to node by one block */
@@ -247,6 +322,30 @@ size_t skip_single_key(char** node_ptr) {
 
     return sizeof(int) + tmp_str_length + 1 + sizeof(int);
 }
+
+/* Function that takes char** node_ptr and char** node_y_ptr as input, and moves 
+ * *node_ptr pointer to the start of node_y address */
+size_t move_ptr_to_ptr(char** node_ptr, char* node_to) {
+    /* Sanity Check */
+    if (!node_ptr || !node_to) {
+        fprintf(stderr, "Null pointer...\n");
+        return 0;
+    }
+    size_t tmp_size = 0;
+
+    tmp_size += skip_initial_parameters(node_ptr);
+    
+    /* Move *node_ptr to point to node_to */
+    char* tmp = (char*)*node_ptr;
+
+    while(tmp != node_to) {
+        tmp_size += skip_single_block(node_ptr);
+        memcpy(tmp, *node_ptr, sizeof(char*));
+    }
+
+    return tmp_size;
+}
+
 
 /* Function that takes a char *node starting at the key as input and calculate the size of the current key */
 size_t get_single_key_size(char *node) {
@@ -310,4 +409,18 @@ size_t skip_key_to_key(char** node_ptr) {
     next_key_offset += skip_single_key(node_ptr);
     next_key_offset += skip_child_ptr(node_ptr);
     return next_key_offset;
+}
+
+/* Function that takes a node and size_t node_size as input. 
+ * The function updates the current node use to new_size */
+int update_node_use(char* node, size_t new_size) {
+    if (!node) {
+        fprintf(stderr, "Null pointer...\n");
+        return 0;
+    }
+
+    node += sizeof(bool);
+    *(size_t*)node = new_size;
+    
+    return 1;    
 }
