@@ -17,6 +17,7 @@
 /* For convenience */
 #define INIT_PARAM_OFFSET 9 //Initial node maintainence parameter offset
 #define NODE_MID_SIZE (NODE_SIZE / 2.0)
+#define STR_SMALLER -1
 
 /* Parameter choice */
 #define T_DEGREE 100
@@ -26,6 +27,8 @@
 /* Function Prototypes(main) */
 char* B_tree_create(void);
 int B_tree_split_child(char*, char*);
+int B_tree_insert(char*, const char*);
+int B_tree_insert_nonfull(char*, const char*);
 
 
 /* Function Prototypes (supplementary) */
@@ -35,16 +38,26 @@ size_t get_node_capacity(char*);
 size_t get_node_use(char*);
 size_t get_init_param_offset(void);
 size_t get_single_key_size(char*);
+
+
+int get_str_length(char**);
+
 size_t skip_single_block(char**);
 size_t skip_child_ptr(char**);
 size_t skip_single_key(char**);
-size_t move_ptr_to_ptr(char**, char*);
+size_t move_ptr_to_ptr(char**, char**);
 size_t skip_initial_parameters(char**);
 bool node_is_leaf(char*);
 size_t skip_block_from_start(char**, int);
 size_t skip_key_to_key(char**);
 size_t move_mid_node(char**);
 int update_node_use(char*, size_t);
+int compare_current_string(char**, size_t*, char*, const char*);
+
+
+
+/* Possible functions that are not done */
+// get_index(char*); //This function would require a change in node structure
 
 
 /* Just some definitions:
@@ -101,26 +114,31 @@ int B_tree_split_child(char* node_x, char* node_y) {
     /* Move tmp_x ptr to node_y child address */
     /* Insert middle key of y into x, and shift all blocks of node_x to the right */
     char* tmp_x = node_x;
-    size_t key_offset = move_ptr_to_ptr(&tmp_x, node_y) + sizeof(char*);
+    size_t key_offset = move_ptr_to_ptr(&tmp_x, &node_y) + sizeof(char*);
     memmove(tmp_x + insertion_offset, tmp_x + sizeof(char*), get_node_use(node_x) + 1 - key_offset);
-    tmp_x += sizeof(char*); *(int*)tmp_x = tmp_length; tmp_x += sizeof(int);
+
+    // Store key from y to x  
+    tmp_x += sizeof(char*); *(int*)tmp_x = tmp_length; 
+    // tmp_x += sizeof(int); //skip first ptr, key, second pointer // Not supposed to be here I think
     memcpy(tmp_x, mid_ptr + sizeof(int), tmp_length + 1);
-    tmp_x += tmp_length + 1;
-    *(int*)tmp_x = *(int*)(mid_ptr + sizeof(int) + tmp_length + 1);
-    tmp_x += sizeof(int);
-    memcpy(tmp_x, &child_z, sizeof(char*));
+    tmp_x += tmp_length + 1; 
+    *(int*)tmp_x = *(int*)(mid_ptr + sizeof(int) + tmp_length + 1); 
+    tmp_x += sizeof(int); // skip counter
+
+
+    memcpy(tmp_x, &child_z, sizeof(char*)); // copy the child_z pointer into node_x
     update_node_use(node_x, get_node_use(node_x) + key_size + sizeof(char*));
     
     /* Delete middle key in y and move RHS keys to child_z */
     /* Clear memory of middle key and set null-byte */
-    memset(mid_ptr, 0xFF, key_size); 
-    *mid_ptr = '\0';
+//    memset(mid_ptr, 0xFF, key_size); 
+    *mid_ptr = '\0'; // 
 
     mid_ptr += key_size; y_mid_offset += key_size;
 
     /* Move following blocks of node_y to child_z including the null-byte */
-    memmove(child_z + get_init_param_offset(), mid_ptr, get_node_use(node_y) + 1 - y_mid_offset);
-    memset(mid_ptr, 0xFF, get_node_use(node_y) + 1 - y_mid_offset);
+      memmove(child_z + get_init_param_offset(), mid_ptr, get_node_use(node_y) + 1 - y_mid_offset);
+//    memset(mid_ptr, 0xFF, get_node_use(node_y) + 1 - y_mid_offset);
 
     update_node_use(child_z, get_node_use(child_z) + (get_node_use(node_y) - y_mid_offset));
     update_node_use(node_y, y_mid_offset - key_size);
@@ -131,7 +149,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
 /* Function that takes a char* subtree root node and key as input. 
  * The function inserts the key into the correct position of the tree */
-int B_tree_insert(char* node, char* const str) {
+int B_tree_insert(char* node, const char* str) {
 
     /* Node will be full if we assume a MAX STRING BYTES */
     if (get_node_use(node) + 1 + get_max_block_size() > NODE_SIZE) {
@@ -140,12 +158,15 @@ int B_tree_insert(char* node, char* const str) {
         char* s = initialize_node(false, NODE_SIZE);
         char* tmp = s;
 
+        /* S is the new root. First child ptr is node */
         skip_initial_parameters(&tmp);
-        memcpy(tmp, &node, sizeof(node)); // May need to fix other things, try understand this first
+        memcpy(tmp, &node, sizeof(char*)); 
+        B_tree_split_child(s, node);
+        B_tree_insert_nonfull(s, str);
 
 
     } else { 
-        // B_tree_insert_nonfull(NULL, str);
+        B_tree_insert_nonfull(node, str);
     }
 
     return 1;
@@ -153,7 +174,36 @@ int B_tree_insert(char* node, char* const str) {
 
 /* Function that takes a non-full char* subtree, creates the key, and 
  * inserts it in the correct position */
-int B_tree_insert_nonfull(char* node, char* const str) {
+int B_tree_insert_nonfull(char* node, const char* str) {
+    // int index = get_index();
+
+    // Create dummy variable and keep track of tmp pointer 
+    char *tmp = node; size_t offset = 0; size_t prev_offset;
+    offset += skip_initial_parameters(&tmp);
+
+    // Create a temporary array rather than dynamic memory allocation (use stack for better
+    // performance)
+    char tmp_array[MAX_STRING_BYTES];
+
+    // Skip child pointers when node is leaf
+    if (node_is_leaf(node)) {
+
+        /* Find the correct position of where to insert key. Seems like previous 
+         * variables aren't enough... */
+        char* prev = tmp;
+        while((*tmp!= '\0') & (STR_SMALLER == compare_current_string(&tmp, &offset, tmp_array, str))) {
+            prev = tmp;
+            prev_offset = offset; 
+        }
+        // Current problem is that require previous string to construct the key... 
+        
+
+    
+
+    } else {
+
+    }
+
 
     return 1;
 }
@@ -277,6 +327,25 @@ size_t get_max_block_size(void) {
     return (sizeof(int) + MAX_STRING_BYTES + 1 + sizeof(int) + sizeof(char*));
 }
 
+
+/* Function that takes a char** node_ptr that points to the start of some block
+ * as input. The function outputs the length of the current block string and 
+ * moves the pointer to the string */
+int get_str_length(char** node_ptr) {
+    if (!node_ptr) {
+        fprintf(stderr, "Null pointer...\n");
+        return -1;
+    }
+    
+    *node_ptr += sizeof(char*); // Skip the child pointer
+
+    int tmp_length = *(int*)*node_ptr;
+    (*node_ptr) += sizeof(int);
+
+    return tmp_length;
+
+}
+
 /* Function that takes a double pointer node and offsets pointer to node by one block */
 size_t skip_single_block(char** node_ptr) {
     /* Sanity Check */
@@ -325,7 +394,7 @@ size_t skip_single_key(char** node_ptr) {
 
 /* Function that takes char** node_ptr and char** node_y_ptr as input, and moves 
  * *node_ptr pointer to the start of node_y address */
-size_t move_ptr_to_ptr(char** node_ptr, char* node_to) {
+size_t move_ptr_to_ptr(char** node_ptr, char** node_to) {
     /* Sanity Check */
     if (!node_ptr || !node_to) {
         fprintf(stderr, "Null pointer...\n");
@@ -336,9 +405,10 @@ size_t move_ptr_to_ptr(char** node_ptr, char* node_to) {
     tmp_size += skip_initial_parameters(node_ptr);
     
     /* Move *node_ptr to point to node_to */
-    char* tmp = (char*)*node_ptr;
-
-    while(tmp != node_to) {
+    char* tmp = *(char**)*node_ptr; // *node_ptr is the first element. char** is 
+    // a pointer to the pointer. Dereferencing gives the address 
+ 
+    while(tmp != *node_to) {
         tmp_size += skip_single_block(node_ptr);
         memcpy(tmp, *node_ptr, sizeof(char*));
     }
@@ -423,4 +493,28 @@ int update_node_use(char* node, size_t new_size) {
     *(size_t*)node = new_size;
     
     return 1;    
+}
+
+/* Function that compares the string in the current block with str_cmp. It assumes 
+ * *node_ptr is pointing to the start of some block
+ * The function outputs -1 if string in block smaller than str_cmp, 0 if equal
+ * and +1 if string in block is larger than str_cmp. 
+ * */
+int compare_current_string(char** node_ptr, size_t* offset_ptr, char* tmp_array, const char* str_cmp) {
+    
+    if (!node_ptr || !tmp_array) {
+        fprintf(stderr, "Null pointer...\n");
+        return -5;
+    }
+
+    int tmp_length = get_str_length(node_ptr);
+    *offset_ptr += sizeof(char*) + sizeof(int); // add child_ptr and str_length offset
+
+    memcpy(tmp_array, *node_ptr, tmp_length + 1);
+
+    *node_ptr += tmp_length + 1 + sizeof(int); // Skip the string and the counter 
+    *offset_ptr += tmp_length + 1 + sizeof(int); // add string and counter offset 
+
+    return strcmp(tmp_array, str_cmp);
+    
 }
