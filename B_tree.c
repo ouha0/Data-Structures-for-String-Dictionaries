@@ -40,7 +40,7 @@ size_t get_init_param_offset(void);
 size_t get_single_key_size(char*);
 
 
-int get_str_length(char**);
+int get_skip_str_length(char**);
 
 size_t skip_single_block(char**);
 size_t skip_child_ptr(char**);
@@ -184,6 +184,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     // Create a temporary array rather than dynamic memory allocation (use stack for better
     // performance)
     char tmp_array[MAX_STRING_BYTES];
+    char prev_array[MAX_STRING_BYTES];
 
     // Skip child pointers when node is leaf
     if (node_is_leaf(node)) {
@@ -327,11 +328,27 @@ size_t get_max_block_size(void) {
     return (sizeof(int) + MAX_STRING_BYTES + 1 + sizeof(int) + sizeof(char*));
 }
 
+/* Funtion that takes a pointer to node as input. The function assumes the pointer
+ * currently points to the start of a block and does not modify the pointer. The 
+ * function outputs the strlength of the key in the current block. */
+int get_str_length(char* node) {
+    if (!node) {
+        fprintf(stderr, "Null pointer input");
+        return -1;
+    }
+
+    /* Skip the child pointer and returns the length of the string */
+    node += sizeof(char*);
+    int tmp_length = *(int*)node;
+
+    return tmp_length;
+}
+
 
 /* Function that takes a char** node_ptr that points to the start of some block
  * as input. The function outputs the length of the current block string and 
  * moves the pointer to the string */
-int get_str_length(char** node_ptr) {
+int get_skip_str_length(char** node_ptr) {
     if (!node_ptr) {
         fprintf(stderr, "Null pointer...\n");
         return -1;
@@ -507,7 +524,7 @@ int compare_current_string(char** node_ptr, size_t* offset_ptr, char* tmp_array,
         return -5;
     }
 
-    int tmp_length = get_str_length(node_ptr);
+    int tmp_length = get_skip_str_length(node_ptr);
     *offset_ptr += sizeof(char*) + sizeof(int); // add child_ptr and str_length offset
 
     memcpy(tmp_array, *node_ptr, tmp_length + 1);
@@ -517,4 +534,37 @@ int compare_current_string(char** node_ptr, size_t* offset_ptr, char* tmp_array,
 
     return strcmp(tmp_array, str_cmp);
     
+}
+
+
+/* Function that compares the string in the second block with strcmp. It 
+ * *node_ptr is currently pointer to the start of the first block.
+ * The function outputs -1 if string in block smaller than str_cmp, 0 if equal 
+ * and +1 if string in block is larger than str_cmp;
+ * */
+int compare_second_string(char** node_ptr, size_t* offset_ptr, char* tmp_array, 
+                          const char* str_cmp) {
+
+    if (!node_ptr || !tmp_array) {
+        fprintf(stderr, "Null input...\n");
+        return -5;
+    }
+
+
+    /* This is wrong, rethink the design. Think about the edge case when 
+     * *node_ptr is at the last pointer of the node, we need to stop */
+    if (*(*node_ptr + sizeof(char*)) == '\0')
+        return -5;
+
+    /* Move *node_ptr to next block */
+    int tmp_length = get_skip_str_length(node_ptr); // skip child_ptr and strlength and store strlength
+    *node_ptr += tmp_length + 1 + sizeof(int); // Skip string and counter 
+    
+    /* Currently at the second block, we don't modify this */
+    tmp_length = get_str_length(*node_ptr);
+
+    /* Copy the string in the second block to tmp array */
+    memcpy(tmp_array, *node_ptr + sizeof(char*) + sizeof(int), tmp_length + 1);
+
+    return strcmp(tmp_array, str_cmp);
 }
