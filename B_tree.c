@@ -23,7 +23,7 @@
 /* Parameter choice */
 #define T_DEGREE 100
 #define NODE_SIZE 500
-
+#define WORDS_NUM 10 // Parameter to control how many words to get from text file 
 
 /* Function Prototypes(main) */
 char* B_tree_create(void);
@@ -59,6 +59,10 @@ int get_skip_str_length(char**);
 int increment_block_counter(char*);
 char* get_child_node(char*);
 
+
+/* Function Prototypes for text processing */
+
+
 /* Possible functions that are not done */
 // get_index(char*); //This function would require a change in node structure
 
@@ -75,15 +79,34 @@ char* get_child_node(char*);
 
 
 int main(int argc, char** argv) {
-
-    printf("bool, size_t and int is size %zu, %zu and %zu\n", sizeof(bool), sizeof(size_t), sizeof(int));
     
+    FILE* file;
+    char word[100]; int counter = 1;
+
+    file = fopen("wordstream.txt", "r");
+    if (file == NULL) {
+        fprintf(stderr, "Error opening file\n");
+        return 1;
+    }
+
     /* Initialize tree */
     char* tree_root = B_tree_create();
+    
+    while(fscanf(file, "%s", word) == 1) {
+        printf("word is %s\n", word);
+        counter++;
+
+        // B_tree_insert(tree_root, word);
+        
+        if (counter > WORDS_NUM)
+            break;
+    }
     
 
     /* Free the root node */
     free(tree_root);
+    fclose(file);
+
     return 0;
 }
 
@@ -181,7 +204,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     // int index = get_index();
 
     // Create dummy variable and keep track of tmp pointer 
-    char *tmp = node; size_t offset = 0; size_t prev_offset;
+    char *tmp = node; size_t offset = 0;
     offset += skip_initial_parameters(&tmp);
 
     int str_length = strlen(str);
@@ -273,7 +296,7 @@ size_t move_mid_node(char** node_ptr) {
     size_t prev_distance, curr_distance;
 
     /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
-    size_t prev_start_offset, prev_key_size;
+    size_t prev_start_offset = 0; size_t prev_key_size;
     prev_start_offset += get_init_param_offset();
     prev_start_offset += sizeof(char*);
 
@@ -415,7 +438,7 @@ size_t skip_single_block(char** node_ptr) {
         return 0;
     }
     
-    size_t tmp_offset;
+    size_t tmp_offset = 0;
 
     /* offset pointer to node by one block */
     tmp_offset += skip_child_ptr(node_ptr); // Skip ptr
@@ -664,3 +687,12 @@ int increment_block_counter(char* node) {
 
     return 1;
 }
+
+
+
+
+
+
+/* The following functions are used for string processing from the textfile */
+
+
