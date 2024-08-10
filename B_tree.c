@@ -18,6 +18,7 @@
 #define INIT_PARAM_OFFSET 9 //Initial node maintainence parameter offset
 #define NODE_MID_SIZE (NODE_SIZE / 2.0)
 #define STR_SMALLER -1
+#define ANY 10 // This is just any integer, so it returns something 
 
 /* Parameter choice */
 #define T_DEGREE 100
@@ -30,18 +31,7 @@ int B_tree_split_child(char*, char*);
 int B_tree_insert(char*, const char*);
 int B_tree_insert_nonfull(char*, const char*);
 
-
-/* Function Prototypes (supplementary) */
-char* initialize_node(bool, size_t);
-size_t get_max_block_size(void);
-size_t get_node_capacity(char*);
-size_t get_node_use(char*);
-size_t get_init_param_offset(void);
-size_t get_single_key_size(char*);
-
-
-int get_skip_str_length(char**);
-
+/* More important Function Prototypes */
 size_t skip_single_block(char**);
 size_t skip_child_ptr(char**);
 size_t skip_single_key(char**);
@@ -52,9 +42,22 @@ size_t skip_block_from_start(char**, int);
 size_t skip_key_to_key(char**);
 size_t move_mid_node(char**);
 int update_node_use(char*, size_t);
-int compare_current_string(char**, size_t*, char*, const char*);
+int compare_current_string_move(char**, size_t*, char*, const char*);
+int compare_second_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_array, 
+                          const char* str_cmp, int* flag);
+int compare_current_string(char* node, char* tmp_array, const char* str_cmp);
 
 
+/* Function Prototypes (supplementary) */
+char* initialize_node(bool, size_t);
+size_t get_max_block_size(void);
+size_t get_node_capacity(char*);
+size_t get_node_use(char*);
+size_t get_init_param_offset(void);
+size_t get_single_key_size(char*);
+int get_skip_str_length(char**);
+int increment_block_counter(char*);
+char* get_child_node(char*);
 
 /* Possible functions that are not done */
 // get_index(char*); //This function would require a change in node structure
@@ -181,32 +184,73 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     char *tmp = node; size_t offset = 0; size_t prev_offset;
     offset += skip_initial_parameters(&tmp);
 
+    int str_length = strlen(str);
+
+    int flag = 0; int store; 
+    size_t block_size;
+
     // Create a temporary array rather than dynamic memory allocation (use stack for better
     // performance)
     char tmp_array[MAX_STRING_BYTES];
-    char prev_array[MAX_STRING_BYTES];
-
-    // Skip child pointers when node is leaf
-    if (node_is_leaf(node)) {
-
-        /* Find the correct position of where to insert key. Seems like previous 
-         * variables aren't enough... */
-        char* prev = tmp;
-        while((*tmp!= '\0') & (STR_SMALLER == compare_current_string(&tmp, &offset, tmp_array, str))) {
-            prev = tmp;
-            prev_offset = offset; 
-        }
-        // Current problem is that require previous string to construct the key... 
-        
-
     
+    /* Find the correct position of where to insert key.*/
 
-    } else {
+    /* Compare the first string. Update counter if str match */
+    if ((store = compare_current_string(tmp, tmp_array, str)) >= 0) {
+        flag = 1;
+        if (store == 0) {
+            /* Exit function after inserting string / updating */
+            increment_block_counter(tmp);
+            return ANY;
+        }
+    }
 
+    /* Compare every second string, update counter if match. (pointer updated each time) */
+    if (!flag) {
+        while((store = compare_second_string_move(&tmp, &offset, tmp_array, str, &flag) <= 0)) {
+            if (store == 0) {
+                increment_block_counter(tmp);
+                return ANY;
+            }
+        }
     }
 
 
-    return 1;
+    // Skip child pointers when node is leaf
+    if (node_is_leaf(node)) {
+        /* Shift everything to the right to fit the new block */
+
+        block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
+        memmove(tmp + block_size, tmp, get_node_use(node) + 1 - offset);
+        *(char**)(tmp) = NULL; // castes tmp to double pointer
+        tmp += sizeof(char*);
+        strcpy(tmp, str);
+        tmp += str_length;
+        *(int*)tmp = INITIAL_COUNT; 
+        // tmp += sizeof(int); // This is not needed I think
+        
+        /* Update currently used space in the node */
+        update_node_use(node, get_node_use(node) + block_size);
+        
+        
+        return ANY;
+
+    } else {
+        
+        char* child = get_child_node(tmp);
+        
+        /* Split the child node if full after inserting key */
+        if (get_node_use(child) + get_max_block_size() + 1 > NODE_SIZE) {
+            B_tree_split_child(node, child);
+
+            /* If str is larger than current key in parent, shift tmp by one block */
+            if (compare_current_string(tmp, tmp_array, str) < 0) {
+                skip_single_block(&tmp);
+                child = get_child_node(tmp);
+            } 
+        }
+        return B_tree_insert_nonfull(child, str);
+    }
 }
 
 
@@ -512,12 +556,21 @@ int update_node_use(char* node, size_t new_size) {
     return 1;    
 }
 
+/* Function that takes a char* node as input. char* node currently points to a block
+ * The function outputs the address of the child node in the block. */
+char* get_child_node(char* node) {
+    return *(char**)node;
+}
+
+
+
+// THIS FUNCTION IS NOT BEING USED RN
 /* Function that compares the string in the current block with str_cmp. It assumes 
  * *node_ptr is pointing to the start of some block
  * The function outputs -1 if string in block smaller than str_cmp, 0 if equal
  * and +1 if string in block is larger than str_cmp. 
  * */
-int compare_current_string(char** node_ptr, size_t* offset_ptr, char* tmp_array, const char* str_cmp) {
+int compare_current_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_array, const char* str_cmp) {
     
     if (!node_ptr || !tmp_array) {
         fprintf(stderr, "Null pointer...\n");
@@ -542,8 +595,8 @@ int compare_current_string(char** node_ptr, size_t* offset_ptr, char* tmp_array,
  * The function outputs -1 if string in block smaller than str_cmp, 0 if equal 
  * and +1 if string in block is larger than str_cmp;
  * */
-int compare_second_string(char** node_ptr, size_t* offset_ptr, char* tmp_array, 
-                          const char* str_cmp) {
+int compare_second_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_array, 
+                          const char* str_cmp, int* flag) {
 
     if (!node_ptr || !tmp_array) {
         fprintf(stderr, "Null input...\n");
@@ -553,12 +606,16 @@ int compare_second_string(char** node_ptr, size_t* offset_ptr, char* tmp_array,
 
     /* This is wrong, rethink the design. Think about the edge case when 
      * *node_ptr is at the last pointer of the node, we need to stop */
-    if (*(*node_ptr + sizeof(char*)) == '\0')
-        return -5;
+    if (*(*node_ptr + sizeof(char*)) == '\0') {
+        *flag = 1;
+        return ANY;
+
+    }
 
     /* Move *node_ptr to next block */
     int tmp_length = get_skip_str_length(node_ptr); // skip child_ptr and strlength and store strlength
     *node_ptr += tmp_length + 1 + sizeof(int); // Skip string and counter 
+    *offset_ptr += sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int); // Move offset forward one block
     
     /* Currently at the second block, we don't modify this */
     tmp_length = get_str_length(*node_ptr);
@@ -567,4 +624,43 @@ int compare_second_string(char** node_ptr, size_t* offset_ptr, char* tmp_array,
     memcpy(tmp_array, *node_ptr + sizeof(char*) + sizeof(int), tmp_length + 1);
 
     return strcmp(tmp_array, str_cmp);
+}
+
+/* Function that takes a node, array from stack, and string to compare as input. 
+ * The function outputs < 0 if string in block smaller than str_cmp, 0 if equal, 
+ * > 0 if string in block is larger than str_cmp. NOTE THAT THIS FUNCTION DOESN'T
+ * AlTER THE PARENT NODE_PTR
+ * */
+int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
+    if (!node || !tmp_array) {
+        fprintf(stderr, "Emtpy pointer input...\n");
+        return ANY;
+    }
+
+    /* Get the string from current block and store in temporary array */
+    int tmp_length = get_str_length(node);
+    memcpy(tmp_array, node + sizeof(char*) + sizeof(int), tmp_length + 1);
+    
+    /* return comparison results of two strings */
+    return strcmp(tmp_array, str_cmp);
+}
+
+
+
+/* Function that takes a char* node pointer. The function assumes the node points
+ * to the start of the block. The function increments the counter of part if the key 
+ * by 1 (+= 1) */
+int increment_block_counter(char* node) {
+    if (!node) {
+        fprintf(stderr, "Null input...\n");
+        return 0;
+    }
+
+    /* Skip past child pointer, str_length, string so the pointer points to counter */
+    node += sizeof(char*);
+    int tmp_length = *(int*)node; node += sizeof(int) + tmp_length + 1;
+    
+    *(int*)(node) += 1; //Increment node key counter by 1
+
+    return 1;
 }
