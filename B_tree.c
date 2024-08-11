@@ -23,7 +23,7 @@
 /* Parameter choice */
 #define T_DEGREE 100
 #define NODE_SIZE 500
-#define WORDS_NUM 10 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 1 // Parameter to control how many words to get from text file 
 
 /* Function Prototypes(main) */
 char* B_tree_create(void);
@@ -282,6 +282,8 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         }
     }
 
+    printf("Surely this runs\n");
+
 
     // Skip child pointers when node is leaf
     if (node_is_leaf(node)) {
@@ -293,14 +295,14 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         memmove(tmp + block_size, tmp, get_node_use(node) + 1 - offset);
         *(char**)(tmp) = NULL; // castes tmp to double pointer
         tmp += sizeof(char*);
-        strcpy(tmp, str);
-        tmp += str_length;
+        *(int*)tmp = str_length; tmp += sizeof(int);
+        memcpy(tmp, str, str_length + 1);
+        tmp += str_length + 1;
         *(int*)tmp = INITIAL_COUNT; 
         // tmp += sizeof(int); // This is not needed I think
         
         /* Update currently used space in the node */
         update_node_use(node, get_node_use(node) + block_size);
-        
         
         return POSITIVE;
 
