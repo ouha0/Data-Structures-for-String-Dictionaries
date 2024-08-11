@@ -12,17 +12,17 @@
 #define DOUBLE_SIZE 2
 #define INITIAL_COUNT 1
 #define INITIAL_KEYS 0
-#define INITIAL_NODE_SIZE_USE 0
+#define INITIAL_NODE_SIZE_USE INIT_PARAM_OFFSET
 
 /* For convenience */
 #define INIT_PARAM_OFFSET 9 //Initial node maintainence parameter offset
 #define NODE_MID_SIZE (NODE_SIZE / 2.0)
 #define STR_SMALLER -1
-#define ANY 10 // This is just any integer, so it returns something 
+#define POSITIVE 10 // This is just any integer, so it returns something 
 
 /* Parameter choice */
 #define T_DEGREE 100
-#define NODE_SIZE 500
+#define NODE_SIZE 100
 #define WORDS_NUM 10 // Parameter to control how many words to get from text file 
 
 /* Function Prototypes(main) */
@@ -35,7 +35,7 @@ int B_tree_insert_nonfull(char*, const char*);
 size_t skip_single_block(char**);
 size_t skip_child_ptr(char**);
 size_t skip_single_key(char**);
-size_t move_ptr_to_ptr(char**, char**);
+size_t move_ptr_to_ptr(char**, char*);
 size_t skip_initial_parameters(char**);
 bool node_is_leaf(char*);
 size_t skip_block_from_start(char**, int);
@@ -60,7 +60,17 @@ int increment_block_counter(char*);
 char* get_child_node(char*);
 
 
+void print_current_block(char* node);
+
+
 /* Function Prototypes for text processing */
+
+
+
+/* Function Prototypes for testing only */
+void print_split_working(void);
+void print_non_full_insert_working(void);
+void print_node_create_successful(void);
 
 
 /* Possible functions that are not done */
@@ -96,7 +106,7 @@ int main(int argc, char** argv) {
         printf("word is %s\n", word);
         counter++;
 
-        // B_tree_insert(tree_root, word);
+        B_tree_insert(tree_root, word);
         
         if (counter > WORDS_NUM)
             break;
@@ -112,7 +122,7 @@ int main(int argc, char** argv) {
 
 /* Function that takes no input. It outputs the root node of a B-tree(char*) */
 char* B_tree_create(void) {
-    char* root = initialize_node(true, NODE_SIZE);
+    char* root = initialize_node(true, NODE_SIZE); 
     return root;
 }
 
@@ -125,13 +135,15 @@ char* B_tree_create(void) {
 int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Create new child node z (sibling of y) */
-    char* child_y = node_y;
+    // char* child_y = node_y;
     char* child_z = initialize_node(node_is_leaf(node_y), NODE_SIZE);
+    print_node_create_successful(); 
 
     /* Find midpoint of node_y to copy to node_z */
     char* mid_ptr = node_y;
     size_t y_mid_offset = move_mid_node(&mid_ptr); //middle key of y_node
-    
+    print_current_block(mid_ptr);
+
     int tmp_length = *(int*)mid_ptr; // y_child middle key length
     size_t key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
     size_t insertion_offset = sizeof(char*) + key_size + sizeof(char*);
@@ -140,7 +152,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
     /* Move tmp_x ptr to node_y child address */
     /* Insert middle key of y into x, and shift all blocks of node_x to the right */
     char* tmp_x = node_x;
-    size_t key_offset = move_ptr_to_ptr(&tmp_x, &node_y) + sizeof(char*);
+    size_t key_offset = move_ptr_to_ptr(&tmp_x, *(char**)node_y) + sizeof(char*);
     memmove(tmp_x + insertion_offset, tmp_x + sizeof(char*), get_node_use(node_x) + 1 - key_offset);
 
     // Store key from y to x  
@@ -175,23 +187,35 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
 /* Function that takes a char* subtree root node and key as input. 
  * The function inserts the key into the correct position of the tree */
+
+
+// Current problem, forgot to update the new root of the tree 
 int B_tree_insert(char* node, const char* str) {
+    // printf("Node space used is ... %zu. Size is %d. max block size is %zu\n", get_node_use(node), NODE_SIZE, get_max_block_size());
 
     /* Node will be full if we assume a MAX STRING BYTES */
     if (get_node_use(node) + 1 + get_max_block_size() > NODE_SIZE) {
+        
+        printf("node will be full...\n");
 
         /* allocate s as the new root */
         char* s = initialize_node(false, NODE_SIZE);
         char* tmp = s;
+        skip_initial_parameters(&tmp);
+
 
         /* S is the new root. First child ptr is node */
-        skip_initial_parameters(&tmp);
         memcpy(tmp, &node, sizeof(char*)); 
         B_tree_split_child(s, node);
-        B_tree_insert_nonfull(s, str);
+        print_split_working();
 
+        B_tree_insert_nonfull(s, str);
+        print_non_full_insert_working();
 
     } else { 
+        printf("Node won't be full...\n");
+
+
         B_tree_insert_nonfull(node, str);
     }
 
@@ -205,7 +229,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
 
     // Create dummy variable and keep track of tmp pointer 
     char *tmp = node; size_t offset = 0;
-    offset += skip_initial_parameters(&tmp);
+    offset += skip_initial_parameters(&tmp); //skip initial parameters for tmp 
 
     int str_length = strlen(str);
 
@@ -224,7 +248,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         if (store == 0) {
             /* Exit function after inserting string / updating */
             increment_block_counter(tmp);
-            return ANY;
+            return POSITIVE;
         }
     }
 
@@ -233,7 +257,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         while((store = compare_second_string_move(&tmp, &offset, tmp_array, str, &flag) <= 0)) {
             if (store == 0) {
                 increment_block_counter(tmp);
-                return ANY;
+                return POSITIVE;
             }
         }
     }
@@ -241,6 +265,8 @@ int B_tree_insert_nonfull(char* node, const char* str) {
 
     // Skip child pointers when node is leaf
     if (node_is_leaf(node)) {
+        printf("Current node is leaf node\n");
+
         /* Shift everything to the right to fit the new block */
 
         block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
@@ -256,7 +282,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         update_node_use(node, get_node_use(node) + block_size);
         
         
-        return ANY;
+        return POSITIVE;
 
     } else {
         
@@ -292,7 +318,7 @@ size_t move_mid_node(char** node_ptr) {
     char* tmp = *node_ptr;
    
     /* Variables to keep track of offset of closest key to mid point */
-    size_t min_offset, tmp_min, min_distance;
+    size_t min_offset, min_distance; // size_t tmp_min; // tmp_min not being used
     size_t prev_distance, curr_distance;
 
     /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
@@ -359,6 +385,11 @@ char* initialize_node(bool is_leaf, size_t node_size) {
 
     /* Dynamically allocate memory for node */
     char* node = (char*)malloc(node_size * sizeof(char));
+    if (!node) {
+        fprintf(stderr, "Failed to initialize node...\n");
+        return NULL;
+    }
+
     char* tmp = node;
 
     /* Initialize the housekeeping variables for the node */
@@ -420,7 +451,7 @@ int get_skip_str_length(char** node_ptr) {
         fprintf(stderr, "Null pointer...\n");
         return -1;
     }
-    
+
     *node_ptr += sizeof(char*); // Skip the child pointer
 
     int tmp_length = *(int*)*node_ptr;
@@ -478,7 +509,7 @@ size_t skip_single_key(char** node_ptr) {
 
 /* Function that takes char** node_ptr and char** node_y_ptr as input, and moves 
  * *node_ptr pointer to the start of node_y address */
-size_t move_ptr_to_ptr(char** node_ptr, char** node_to) {
+size_t move_ptr_to_ptr(char** node_ptr, char* node_to) {
     /* Sanity Check */
     if (!node_ptr || !node_to) {
         fprintf(stderr, "Null pointer...\n");
@@ -489,10 +520,10 @@ size_t move_ptr_to_ptr(char** node_ptr, char** node_to) {
     tmp_size += skip_initial_parameters(node_ptr);
     
     /* Move *node_ptr to point to node_to */
-    char* tmp = *(char**)*node_ptr; // *node_ptr is the first element. char** is 
+    char* tmp = node_to; // *node_ptr is the first element. char** is 
     // a pointer to the pointer. Dereferencing gives the address 
  
-    while(tmp != *node_to) {
+    while(tmp != node_to) {
         tmp_size += skip_single_block(node_ptr);
         memcpy(tmp, *node_ptr, sizeof(char*));
     }
@@ -631,7 +662,7 @@ int compare_second_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_ar
      * *node_ptr is at the last pointer of the node, we need to stop */
     if (*(*node_ptr + sizeof(char*)) == '\0') {
         *flag = 1;
-        return ANY;
+        return POSITIVE;
 
     }
 
@@ -657,8 +688,16 @@ int compare_second_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_ar
 int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
     if (!node || !tmp_array) {
         fprintf(stderr, "Emtpy pointer input...\n");
-        return ANY;
+        return POSITIVE;
     }
+    
+    /* If start of current string is nullbyte, should only happen in the start */
+    if (*node == '\0') {
+        printf("Current node is nullbyte\n");
+        return POSITIVE;
+    }
+
+
 
     /* Get the string from current block and store in temporary array */
     int tmp_length = get_str_length(node);
@@ -688,6 +727,31 @@ int increment_block_counter(char* node) {
     return 1;
 }
 
+/* Function that takes a ptr to a node starting at a block. It prints the str length, string and counter without 
+ * modifying the node */
+void print_current_block(char* node) {
+    if (!node || *node == '\0') {
+        printf("Either empty node or current block is empty\n");
+        return;
+    }
+
+    node += sizeof(char*);
+    if (*node == '\0') {
+        printf("Currently at end of node\n");
+        return;
+    }
+
+
+
+    char word[MAX_STRING_BYTES + 1];
+    int tmp_length = *(int*)node; node += sizeof(int);
+    memcpy(word, node, tmp_length + 1); node += tmp_length + 1;
+    int tmp_counter = *(int*)node;
+
+    printf("Block string length is %d, Block string is %s, Block string counter is %d\n", tmp_length, word, tmp_counter);
+    return;
+}
+
 
 
 
@@ -696,3 +760,25 @@ int increment_block_counter(char* node) {
 /* The following functions are used for string processing from the textfile */
 
 
+
+
+
+/* The following functions are used purely for testing */
+
+/* Function prints B_tree_split child is working */
+void print_split_working(void) {
+    printf("Node split child working \n");
+    return;
+}
+
+/* Function prints that B_tree_insert_nonfull function is working */
+void print_non_full_insert_working(void) {
+    printf("Node B-tree insert non-full working\n");
+    return;
+}
+
+
+void print_node_create_successful(void) {
+    printf("Node successfully created \n");
+    return;
+}
