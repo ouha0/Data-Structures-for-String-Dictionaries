@@ -16,19 +16,19 @@
 
 /* For convenience */
 #define INIT_PARAM_OFFSET 9 //Initial node maintainence parameter offset
-#define NODE_MID_SIZE (NODE_SIZE / 2.0)
+#define NODE_MID_SIZE ((NODE_SIZE - INIT_PARAM_OFFSET)/ 2.0)
 #define STR_SMALLER -1
 #define POSITIVE 10 // This is just any integer, so it returns something 
 
 /* Parameter choice */
 #define T_DEGREE 100
-#define NODE_SIZE 100
+#define NODE_SIZE 500
 #define WORDS_NUM 10 // Parameter to control how many words to get from text file 
 
 /* Function Prototypes(main) */
 char* B_tree_create(void);
 int B_tree_split_child(char*, char*);
-int B_tree_insert(char*, const char*);
+int B_tree_insert(char**, const char*);
 int B_tree_insert_nonfull(char*, const char*);
 
 /* More important Function Prototypes */
@@ -61,7 +61,9 @@ char* get_child_node(char*);
 
 
 void print_current_block(char* node);
-
+void check_valid_pointer(char* node);
+void print_size(size_t size);
+void print_node_strings(char* node);
 
 /* Function Prototypes for text processing */
 
@@ -71,6 +73,9 @@ void print_current_block(char* node);
 void print_split_working(void);
 void print_non_full_insert_working(void);
 void print_node_create_successful(void);
+
+void print_node_address(char* node);
+void print_current_block_address(char* node);
 
 
 /* Possible functions that are not done */
@@ -98,6 +103,9 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Error opening file\n");
         return 1;
     }
+    
+    printf("Checking size of initial parameters %zu\n", get_init_param_offset());
+    printf("Boolean size of %zu\n", sizeof(bool));
 
     /* Initialize tree */
     char* tree_root = B_tree_create();
@@ -106,11 +114,13 @@ int main(int argc, char** argv) {
         printf("word is %s\n", word);
         counter++;
 
-        B_tree_insert(tree_root, word);
+        B_tree_insert(&tree_root, word);
         
         if (counter > WORDS_NUM)
             break;
     }
+
+    print_node_strings(tree_root);
     
 
     /* Free the root node */
@@ -143,6 +153,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
     char* mid_ptr = node_y;
     size_t y_mid_offset = move_mid_node(&mid_ptr); //middle key of y_node
     print_current_block(mid_ptr);
+    print_size(y_mid_offset);
 
     int tmp_length = *(int*)mid_ptr; // y_child middle key length
     size_t key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
@@ -190,23 +201,34 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
 
 // Current problem, forgot to update the new root of the tree 
-int B_tree_insert(char* node, const char* str) {
+int B_tree_insert(char** root_ptr, const char* str) {
     // printf("Node space used is ... %zu. Size is %d. max block size is %zu\n", get_node_use(node), NODE_SIZE, get_max_block_size());
 
     /* Node will be full if we assume a MAX STRING BYTES */
-    if (get_node_use(node) + 1 + get_max_block_size() > NODE_SIZE) {
+    if (get_node_use(*root_ptr) + 1 + get_max_block_size() > NODE_SIZE) {
         
         printf("node will be full...\n");
+        
+        char* prev_root = *root_ptr; 
 
         /* allocate s as the new root */
         char* s = initialize_node(false, NODE_SIZE);
+        *root_ptr = s; // The new node becomes the new root
         char* tmp = s;
         skip_initial_parameters(&tmp);
 
 
         /* S is the new root. First child ptr is node */
-        memcpy(tmp, &node, sizeof(char*)); 
-        B_tree_split_child(s, node);
+        memcpy(tmp, &prev_root, sizeof(char*)); 
+        *(tmp + sizeof(char*)) = '\0'; //Set null-byte at end of new node 
+
+        /* For checking */
+        print_current_block_address(tmp);
+        print_node_address(prev_root);
+        printf("They should be the same\n");
+
+
+        B_tree_split_child(s, prev_root);
         print_split_working();
 
         B_tree_insert_nonfull(s, str);
@@ -214,9 +236,7 @@ int B_tree_insert(char* node, const char* str) {
 
     } else { 
         printf("Node won't be full...\n");
-
-
-        B_tree_insert_nonfull(node, str);
+        B_tree_insert_nonfull(*root_ptr, str);
     }
 
     return 1;
@@ -328,6 +348,9 @@ size_t move_mid_node(char** node_ptr) {
 
     /* Size of previous key to get the index */
     prev_key_size = get_single_key_size(*node_ptr + prev_start_offset);
+    
+    print_current_block(*node_ptr + get_init_param_offset());
+
     
     /* Move tmp pointer to second key of the node */
     size_t curr_start_offset = skip_block_from_start(&tmp, 1);
@@ -752,8 +775,62 @@ void print_current_block(char* node) {
     return;
 }
 
+/* Sanity Check functions */
+
+/* Function that checks whether the node input is emtpy */
+void check_valid_pointer(char* node) {
+    if (!node) {
+        fprintf(stderr, "Node is emtpy\n");
+        return;
+    }
+    return;
+}
 
 
+/* Print all blocks from the start of the node */
+void print_node_strings(char* node) {
+    check_valid_pointer(node);
+
+
+    /* Temp variatbles to output data to stdout */
+    int stored_length, stored_counter; 
+    char stored_string[MAX_STRING_BYTES];
+
+    char* ptr = node;
+    skip_initial_parameters(&ptr);
+   
+    if (*ptr == '\0') {
+        printf("node is emtpy\n");
+        return;
+    }
+
+    
+    // Note that memcpy is used to indicate that overlapping memory isn't the intention 
+    while(*ptr != '\0') {
+        
+        ptr += sizeof(char*);
+        if (*ptr == '\0') {
+            printf("End of node\n");
+            return;
+        }
+        
+        /* Store the strings in temporary variables */
+        stored_length = *(int*)ptr; ptr += sizeof(int);
+
+        /* Storing string and String counter*/
+        memcpy(stored_string, ptr, stored_length + 1);
+        ptr += stored_length + 1;
+
+        stored_counter = *(int*)ptr; ptr += sizeof(int);
+        
+        /* Print the data to stdout (for checking mainly) */
+        fprintf(stdout, "Length of string: %d\n", stored_length);
+        fprintf(stdout, "String: %s\n", stored_string);
+        fprintf(stdout, "String counter: %d\n", stored_counter);
+
+    }
+    
+}
 
 
 
@@ -777,8 +854,27 @@ void print_non_full_insert_working(void) {
     return;
 }
 
-
+/* Function that prints if node_created successfully */
 void print_node_create_successful(void) {
     printf("Node successfully created \n");
+    return;
+}
+
+
+/* Function that prints the node address of the input */
+void print_node_address(char* node) {
+    printf("The address of the node is: %p\n", (void*)node);
+    return;
+}
+
+/* Function that prints the address of the current block */
+void print_current_block_address(char* node) {
+    print_node_address(*(char**)node);
+    return;
+}
+
+/* Function that prints the size */
+void print_size(size_t size) {
+    printf("The size offset is %zu\n", size);
     return;
 }
