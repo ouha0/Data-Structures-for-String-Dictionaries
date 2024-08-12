@@ -336,9 +336,11 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     if (!flag) {
         printf("Comparing every second string...\n");
         while((store = compare_second_string_move(&tmp, node, &offset, tmp_array, str) <= 0)) {
+            printf("size store is %d\n", store);
             printf("compared second string %s. %s is smaller than %s\n", tmp_array, tmp_array, str);
             print_size(offset);
-            printf("node used is %zu\n", get_node_use(node));
+            printf("this block is...\n");
+            print_current_block(tmp);
 
             if (store == 0) {
                 printf("Repeating string \n");
@@ -348,8 +350,10 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         }
     }
 
-    printf("Surely this runs\n");
-    printf("Current offset is %zu (insert_nonfull)\n", offset);
+    printf("The string is %s\nThe node...\n", str);
+    print_node(node);
+    printf("The block has stopped at...\n");
+    print_current_block(tmp);
 
 
     // Skip child pointers when node is leaf
@@ -398,10 +402,22 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         if (get_node_use(child) + get_max_block_size() + 1 > NODE_SIZE) {
             printf("Child node will be full(B_tree_insert_nonfull)\n ");
 
+            printf("Node before split...\n");
+            print_node(node);
+
             B_tree_split_child(node, child);
+            printf("Node after child split (B_tree_insert_nonfull)\n");
+            print_node(node);
+
+            printf("Current stored string is %s\n", tmp_array);
+            print_node_address(tmp);
+            printf("Guess this is a nullbyte %c and it is?\n", *tmp);
+
+
 
             /* If str is larger than current key in parent, shift tmp by one block */
             if (compare_current_string(tmp, tmp_array, str) < 0) {
+                printf("string is larger than current key, shft by one(B_tree_insert_nonfull)\n");
                 skip_single_block(&tmp);
                 child = get_child_node(tmp);
             } 
@@ -764,7 +780,7 @@ int compare_current_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_a
     *node_ptr += tmp_length + 1 + sizeof(int); // Skip the string and the counter 
     *offset_ptr += tmp_length + 1 + sizeof(int); // add string and counter offset 
 
-    return strcmp(tmp_array, str_cmp);
+    return strcasecmp(tmp_array, str_cmp);
     
 }
 
@@ -817,7 +833,8 @@ int compare_second_string_move(char** node_ptr, char* node, size_t* offset_ptr, 
     /* Copy the string in the second block to tmp array */
     memcpy(tmp_array, *node_ptr + sizeof(char*) + sizeof(int), tmp_length + 1);
 
-    return strcmp(tmp_array, str_cmp);
+    printf("first compared string is %s, second string compared is %s\n", tmp_array, str_cmp);
+    return strcasecmp(tmp_array, str_cmp);
 }
 
 /* Function that takes a node, array from stack, and string to compare as input. 
@@ -831,6 +848,7 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
         return POSITIVE;
     }
     
+    // THis shouldn't even work...
     /* If start of current string is nullbyte, should only happen in the start */
     if (get_node_use(node) == INITIAL_NODE_SIZE_USE) {
         printf("Current node is nullbyte. (compare_current_string)\n");
@@ -846,7 +864,7 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
 
     
     /* return comparison results of two strings */
-    return strcmp(tmp_array, str_cmp);
+    return strcasecmp(tmp_array, str_cmp);
 }
 
 
