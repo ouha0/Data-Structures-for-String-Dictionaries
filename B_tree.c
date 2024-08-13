@@ -24,7 +24,7 @@
 
 /* Parameter choice */
 // #define T_DEGREE 100
-#define NODE_SIZE 10000
+#define NODE_SIZE 300
 #define WORDS_NUM 100 // Parameter to control how many words to get from text file 
 
 /* Function Prototypes(main) */
@@ -62,7 +62,7 @@ int increment_block_counter(char*);
 char* get_child_node(char*);
 
 
-void print_current_block(char* node);
+void print_current_block(char* node, char* node_start, size_t offset);
 void check_valid_pointer(char* node);
 void print_size(size_t size);
 void print_node(char*);
@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
     while(fscanf(file, "%s", word) == 1) {
         printf("word is %s\n", word);
 
-        printf("\nCurrently inserting %s\n\n", word);
+        printf("\n\nCURRENTLY INSERTING %s\n\n", word);
         B_tree_insert(&tree_root, word);
         
         printf("Currently inserted %d words\n", counter);
@@ -173,7 +173,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
     print_node(node_y);
 
     printf("\nPrinting middle block...\n");
-    print_current_block(mid_ptr - sizeof(char*));
+    print_current_block(mid_ptr - sizeof(char*), node_y, y_mid_offset);
     printf("yolo\n");
     print_size(y_mid_offset);
     print_size(get_node_use(node_y));
@@ -223,7 +223,6 @@ int B_tree_split_child(char* node_x, char* node_y) {
     // Checking 
     print_node(node_x);
     print_node_value_address(tmp_x);
-    print_current_block(tmp_x);
 
     /* Storing child_z ptr into node_x */
     *(char**)tmp_x = child_z;
@@ -268,6 +267,9 @@ int B_tree_insert(char** root_ptr, const char* str) {
     // printf("Node space used is ... %zu. Size is %d. max block size is %zu\n", get_node_use(node), NODE_SIZE, get_max_block_size());
     printf("\nEntering B-tree insert function\n\n\n");
     
+    printf("Root node size is %zu. The node currently looks like this...\n", get_node_use(*root_ptr));
+    print_node(*root_ptr);
+    
 
     /* Node will be full if we assume a MAX STRING BYTES */
     if (get_node_use(*root_ptr) + 1 + get_max_block_size() > NODE_SIZE) {
@@ -295,15 +297,20 @@ int B_tree_insert(char** root_ptr, const char* str) {
 
 
         B_tree_split_child(s, prev_root);
+        print_node(s);
         print_split_working();
 
         B_tree_insert_nonfull(s, str);
+        print_node(s);
         print_non_full_insert_working();
         printf("\n");
 
     } else { 
         printf("Node won't be full...\n");
         B_tree_insert_nonfull(*root_ptr, str);
+
+        printf("Checking behaviour\n");
+        print_node(*root_ptr);
     }
 
     printf("Successful insertion...\n");
@@ -319,6 +326,9 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     // int index = get_index();
     
     printf("\nEntering B-tree insert nonfull function\n\n\n");
+    printf("The node to insert the string currently looks like...");
+    print_node(node);
+
 
 
     // Create dummy variable and keep track of tmp pointer 
@@ -326,6 +336,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     offset += skip_initial_parameters(&tmp); //skip initial parameters for tmp 
     
     printf("This should be a null-byte %c(B_tree_insert_nonfull)\n", *tmp);
+    printf("node size is %zu\n", get_node_use(node));
 
     int str_length = strlen(str);
 
@@ -339,7 +350,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     /* Find the correct position of where to insert key.*/
 
     /* Compare the first string. Update counter if str match */
-    if ((store = compare_current_string(tmp, tmp_array, str)) >= 0) {
+    if ((store = compare_current_string(node, tmp_array, str)) >= 0) {
         printf("Tmp word is %s\n", tmp_array);
         printf("string is %s\n", str);
 
@@ -359,7 +370,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
             printf("compared second string %s. %s is smaller than %s\n", tmp_array, tmp_array, str);
             print_size(offset);
             printf("this block is...\n");
-            print_current_block(tmp);
+            print_current_block(tmp, node, offset);
 
             if (store == 0) {
                 printf("Repeating string \n");
@@ -372,7 +383,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     printf("The string is %s\nThe node...\n", str);
     print_node(node);
     printf("The block has stopped at...\n");
-    print_current_block(tmp);
+    print_current_block(tmp, node, offset);
 
 
     // Skip child pointers when node is leaf
@@ -404,14 +415,12 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         /* Update currently used space in the node */
         update_node_use(node, get_node_use(node) + block_size);
 
-        print_current_block(node + get_init_param_offset()); // Testing purposes 
-        print_node_value_address(node + get_init_param_offset());
-        print_key_string(node + get_init_param_offset() + sizeof(char*));
+        print_node(node);
         
         return POSITIVE;
 
     } else {
-        printf("Current node is not a leaf node\n");
+        printf("\nCurrent node is not a leaf node\n");
         
         char* child = get_child_node(tmp);
         printf("Child node is contains...\n");
@@ -440,6 +449,8 @@ int B_tree_insert_nonfull(char* node, const char* str) {
                 skip_single_block(&tmp);
                 child = get_child_node(tmp);
             } 
+            print_node(node);
+            print_node(child);
         }
         return B_tree_insert_nonfull(child, str);
     }
@@ -477,9 +488,6 @@ size_t move_mid_node(char** node_ptr) {
     /* Size of previous key to get the index */
     prev_key_size = get_single_key_size(*node_ptr + prev_start_offset);
     
-    printf("Finding middle key of node. Checking starting block\n");
-    print_current_block(*node_ptr + get_init_param_offset()); // checking 
-
     
     /* Move tmp pointer to second key of the node */
     size_t curr_start_offset = skip_block_from_start(&tmp, 1);
@@ -578,7 +586,7 @@ size_t get_max_block_size(void) {
     return (sizeof(int) + MAX_STRING_BYTES + 1 + sizeof(int) + sizeof(char*));
 }
 
-/* Funtion that takes a pointer to node as input. The function assumes the pointer
+/* Funtion that takes a pointer to the start of a block in some node as input. The function assumes the pointer
  * currently points to the start of a block and does not modify the pointer. The 
  * function outputs the strlength of the key in the current block. */
 int get_str_length(char* node) {
@@ -587,9 +595,8 @@ int get_str_length(char* node) {
         return -1;
     }
 
-    /* Skip the child pointer and returns the length of the string */
-    node += sizeof(char*);
-    int tmp_length = *(int*)node;
+    /* Skip initial parameters, the child pointer and returns the length of the string */
+    int tmp_length = *(int*)(node + sizeof(char*));
 
     return tmp_length;
 }
@@ -677,29 +684,24 @@ size_t move_ptr_to_ptr(char** node_ptr, char* node_to) {
     check_valid_pointer(*node_ptr);
 
 
-    size_t node_used = get_node_use(*node_ptr); // doesn't seem like it is used
-
-
+    size_t node_used = get_node_use(*node_ptr); 
     size_t tmp_size = 0;
+
     tmp_size += skip_initial_parameters(node_ptr);
     
     /* Move *node_ptr to point to node_to */
     char* tmp = *(char**)(*node_ptr); // *node_ptr is the first element. char** is 
     // a pointer to the pointer. Dereferencing gives the address 
  
-    while(tmp != node_to) {        
-        if (tmp_size + sizeof(char*) >= node_used) {
-            assert(0);
+    while(tmp != node_to) {
+        /* If at last child ptr of the node, quit the function and return the offset */
+        if (tmp_size + sizeof(char*) >= node_used) { 
+            assert(*(char**)(*node_ptr) == node_to);
+            return tmp_size; 
         }
 
         tmp_size += skip_single_block(node_ptr);
         memcpy(tmp, *node_ptr, sizeof(char*));
-    }
-
-    /* If this doesn't run, it means that the pointer was moved correctly*/
-    if (tmp != node_to) {
-        fprintf(stderr, "Was not able to find child ptr, something is wrong...\n");
-        return POSITIVE;
     }
 
     return tmp_size;
@@ -780,6 +782,8 @@ int update_node_use(char* node, size_t new_size) {
 
     node += sizeof(bool);
     *(size_t*)node = new_size;
+
+    printf("The new node size has been updated. It is %zu\n", new_size);
     
     return 1;    
 }
@@ -843,6 +847,7 @@ int compare_second_string_move(char** node_ptr, char* node, size_t* offset_ptr, 
 
     /* Move *node_ptr to next block */
     int tmp_length = get_skip_str_length(node_ptr); // skip child_ptr and strlength and store strlength
+    printf("Length of current block is %d\n", tmp_length);
 
     *node_ptr += tmp_length + 1 + sizeof(int); // Skip string and counter 
     *offset_ptr += sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int); // Move offset forward one block
@@ -862,6 +867,8 @@ int compare_second_string_move(char** node_ptr, char* node, size_t* offset_ptr, 
    // }
 
     tmp_length = get_str_length(*node_ptr);
+    printf("Length of next block is %d\n", tmp_length);
+    
 
     /* Copy the string in the second block to tmp array */
     memcpy(tmp_array, *node_ptr + sizeof(char*) + sizeof(int), tmp_length + 1);
@@ -892,7 +899,9 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
 
 
     /* Get the string from current block and store in temporary array */
-    int tmp_length = get_str_length(node);
+    int tmp_length = get_str_length(node + INIT_PARAM_OFFSET);
+    printf("tmp length is %d\n", tmp_length);
+    assert(tmp_length >= 0);
     memcpy(tmp_array, node + sizeof(char*) + sizeof(int), tmp_length + 1);
     printf("tmp array is %s (compare_current_string)\n", tmp_array);
 
@@ -923,13 +932,25 @@ int increment_block_counter(char* node) {
 
 /* Function that takes a ptr to a node starting at a block. It prints the str length, string and counter without 
  * modifying the node. It assumes that the current block is a non-emtpy block */
-void print_current_block(char* node) {
+void print_current_block(char* node, char* node_start, size_t offset) {
     check_valid_pointer(node);
 
-    print_node_value_address(node); //print child ptr address of current block
+    print_node(node_start);
+    
+    if (get_node_use(node_start) == INIT_PARAM_OFFSET) {
+        printf("Current node is emtpy, nothing to print\n");
+        return;
+    }
+
+    if (offset + sizeof(char*) >= get_node_use(node_start)) {
+        printf("Currently node is at the end\n");
+        return; 
+    }
+
 
 
     node += sizeof(char*);
+    // End of node
     if (*node == '\0') {
         printf("Currently at end of node (print_current_block)\n");
         return;
@@ -937,6 +958,9 @@ void print_current_block(char* node) {
 
     char word[MAX_STRING_BYTES + 1];
     int tmp_length = *(int*)node; node += sizeof(int);
+
+    printf("length check is %d\n", tmp_length);
+
     memcpy(word, node, tmp_length + 1); node += tmp_length + 1;
     int tmp_counter = *(int*)node;
 
@@ -981,9 +1005,15 @@ void print_key_string(char* key) {
 /* Print all blocks from the start of the node */
 void print_node(char* node) {
     check_valid_pointer(node);
+    printf("\n\nPrinting the whole node\n\n");
+    
+
     size_t node_space_used = get_node_use(node);
+    printf("Find initial node size: %zu\n", node_space_used);
+
     char* ptr = node;
     size_t offset = 0; offset += skip_initial_parameters(&ptr);
+    printf("Skipped initial parameters\n");
 
 
     /* Temp variatbles to output data to stdout */
