@@ -48,6 +48,7 @@ int compare_current_string_move(char**, size_t*, char*, const char*);
 int compare_second_string_move(char** node_ptr, char*node, size_t* offset_ptr, char* tmp_array, 
                           const char* str_cmp);
 int compare_current_string(char* node, char* tmp_array, const char* str_cmp);
+int compare_middle_string(char* node, char* block, char* tmp_array, const char* str_cmp);
 
 
 /* Function Prototypes (supplementary) */
@@ -428,7 +429,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         
         /* Split the child node if full after inserting key */
         if (get_node_use(child) + get_max_block_size() + 1 > NODE_SIZE) {
-            printf("Child node will be full(B_tree_insert_nonfull)\n ");
+            printf("Child node will be full(B_tree_insert_nonfull) non-leaf case\n ");
 
             printf("\nNode before split...\n");
             print_node(node);
@@ -436,15 +437,16 @@ int B_tree_insert_nonfull(char* node, const char* str) {
             B_tree_split_child(node, child);
             printf("\nNode after child split (B_tree_insert_nonfull)\n");
             print_node(node);
+            print_node(child);
 
             printf("Current stored string is %s\n", tmp_array);
             print_node_address(tmp);
-            printf("Guess this is a nullbyte %c and it is?\n", *tmp);
+        
 
-
+            printf("Before string compare, string lentgth is %d, the string is %s\n", str_length, str);
 
             /* If str is larger than current key in parent, shift tmp by one block */
-            if (compare_current_string(tmp, tmp_array, str) < 0) {
+            if (compare_middle_string(node, tmp, tmp_array, str) < 0) {
                 printf("string is larger than current key, shft by one(B_tree_insert_nonfull)\n");
                 skip_single_block(&tmp);
                 child = get_child_node(tmp);
@@ -895,6 +897,7 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
         printf("Current node is nullbyte. (compare_current_string)\n");
         return POSITIVE;
     }
+    printf("Node currently used is %zu\n", get_node_use(node));
 
 
 
@@ -910,7 +913,35 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
     return strcasecmp(tmp_array, str_cmp);
 }
 
+//THIS FUNCTION IS STILL BEING TESTED
+/* Function that compares the string in the middle of some block */
+int compare_middle_string(char* node, char* block, char* tmp_array, const char* str_cmp) {
+    if (!block|| !tmp_array || !node) {
+        fprintf(stderr, "Emtpy pointer input...\n");
+        return POSITIVE;
+    }
+    
+    // THis shouldn't even work...
+    /* If start of current string is nullbyte, should only happen in the start */
+    if (get_node_use(node) == INITIAL_NODE_SIZE_USE) {
+        printf("Current node is nullbyte. (compare_current_string)\n");
+        return POSITIVE;
+    }
+    printf("Node currently used is %zu\n", get_node_use(node));
 
+
+
+    /* Get the string from current block and store in temporary array */
+    int tmp_length = get_str_length(block);
+    printf("tmp length is %d\n", tmp_length);
+    assert(tmp_length >= 0);
+    memcpy(tmp_array, block + sizeof(char*) + sizeof(int), tmp_length + 1);
+    printf("tmp array is %s (compare_current_string)\n", tmp_array);
+
+    
+    /* return comparison results of two strings */
+    return strcasecmp(tmp_array, str_cmp);
+}
 
 /* Function that takes a char* node pointer. The function assumes the node points
  * to the start of the block. The function increments the counter of part if the key 
