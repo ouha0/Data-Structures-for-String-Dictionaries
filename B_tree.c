@@ -123,6 +123,8 @@ int main(int argc, char** argv) {
     /* Initialize tree */
     char* tree_root = B_tree_create();
     
+
+    /* Haven't implemented the case when the string is too large atm */
     while(fscanf(file, "%s", word) == 1) {
         printf("word is %s\n", word);
         
@@ -131,9 +133,6 @@ int main(int argc, char** argv) {
 
 
         printf("\n\nCURRENTLY INSERTING %s\n\n", word);
-        if (strcasecmp(word, "Molecular") == 0) {
-            printf("Flag this!!!, current Molecular insertion\n");
-        }
 
 
         B_tree_insert(&tree_root, word);
