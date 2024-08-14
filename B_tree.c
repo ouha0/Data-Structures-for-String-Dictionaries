@@ -25,13 +25,14 @@
 /* Parameter choice */
 // #define T_DEGREE 100
 #define NODE_SIZE 300
-#define WORDS_NUM 10000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 100 // Parameter to control how many words to get from text file 
 
 /* Function Prototypes(main) */
 char* B_tree_create(void);
 int B_tree_split_child(char*, char*);
 int B_tree_insert(char**, const char*);
 int B_tree_insert_nonfull(char*, const char*);
+int B_tree_search(char*, char*, const char*);
 
 /* More important Function Prototypes */
 size_t skip_single_block(char**);
@@ -104,6 +105,10 @@ int main(int argc, char** argv) {
     
     FILE* file;
     char word[100]; int counter = 1;
+    
+    char word_list[WORDS_NUM][MAX_STRING_BYTES];
+    
+
 
     file = fopen("wordstream.txt", "r");
     if (file == NULL) {
@@ -119,6 +124,10 @@ int main(int argc, char** argv) {
     
     while(fscanf(file, "%s", word) == 1) {
         printf("word is %s\n", word);
+        
+        printf("\n\n Copying word into word list array\n\n");
+        strcpy(word_list[counter - 1], word);
+
 
         printf("\n\nCURRENTLY INSERTING %s\n\n", word);
         if (strcasecmp(word, "Molecular") == 0) {
@@ -138,6 +147,19 @@ int main(int argc, char** argv) {
     printf("Finished inserting strings already. Print the tree root \n\n\n");
     print_node_lexigraphic_check(tree_root);
     
+    int i = 0;
+
+    while(i < WORDS_NUM) {
+        printf("Currently searching for %s in the word list\n", word_list[i]);
+
+        if(!B_tree_search(tree_root, word, word_list[i])) {
+            printf("String is not found, something is wrong\n");
+            assert(0);
+        }
+        i++;
+    }
+
+
 
     /* Free the root node */
     free(tree_root);
@@ -151,6 +173,50 @@ char* B_tree_create(void) {
     char* root = initialize_node(true, NODE_SIZE); 
     return root;
 }
+
+/* Function that takes the root node as input, a temporary heap array, and search string as input. The function outputs whether 
+ * 1 if string is found in B-tree and 0 vice-versa */
+int B_tree_search(char* node, char* array_store, const char* str) {
+    char* tmp = node; int store;
+    size_t offset = skip_initial_parameters(&tmp);
+
+    int key_index = 1;
+   
+    /* If stop at first block */
+    if ((store = compare_current_string(node, array_store, str)) >= 0) {
+        if (store == 0) {
+            printf("String %s has been found. The location is index is %d and address is %p\n", str, key_index, *(char**)(node + INIT_PARAM_OFFSET));
+            return 1;
+        }
+        else if (node_is_leaf(node)){
+            printf("String %s does not exist\n", str);
+            return 0;
+        }
+        else {
+            B_tree_search(*(char**)(node + INIT_PARAM_OFFSET), array_store, str);
+        }
+    /* Do not stop at first block */
+    } else {
+        while((store = compare_second_string_move(&tmp, node, &offset, array_store, str)) <= 0) 
+            key_index++;
+
+        if (store == 0) {
+            printf("String %s has been found. The location is index is %d and address is %p\n", str, key_index, *(char**)(node + INIT_PARAM_OFFSET));
+            return 1;
+        }
+        else if (node_is_leaf(node)){
+            printf("String %s does not exist\n", str);
+            return 0;
+        }
+        else {
+            B_tree_search(*(char**)(tmp), array_store, str);
+        }
+    }
+    
+    return 1;
+
+}
+
 
 
 /* Function that takes as input a non-full internal node x and full child node y of x. 
