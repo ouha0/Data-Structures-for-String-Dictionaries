@@ -21,6 +21,8 @@
 #define WORDS_NUM 1000 // Parameter to control how many words to get from text file 
 
 
+/* PROBLEMS:
+ * DON'T USE STRCASECMP I THINK */
 
 /* Function Prototypes */
 
@@ -61,12 +63,36 @@ int main(int argc, char** argv) {
 
     char* tree_root; 
     
+    /* Insert all words into word_list  */
     while(fscanf(file, "%s", word) == 1) {
-        
+        printf("The word is to insert is %s\n", word);
+        strcpy(word_list[counter - 1], word);
+        counter++;
+
+        if (counter > WORDS_NUM) {
+            break;
+        }
+    }
+
+    printf("Beginning binary tree word insertions\n");
+    /* Insert the words into the binary tree */
+    for (int i = 0; i < counter - 1; i ++) {
+        binary_tree_insert(&tree_root, word_list[i]);
+    }
+
+
+    printf("Beginning binary tree word_list searches\n");
+    /* Search for the words in the binary tree */
+    for (int i = 0; i < counter - 1; i++) {
+        if(!binary_tree_search(tree_root, word_list[i])) {
+            /* Word not found for some reason */
+            assert(0);
+        }
     }
 
 
 
+    free(tree_root);
     fclose(file);
     return 0;
 }
@@ -150,6 +176,10 @@ char* create_node(const char* str) {
 
     /* Dynamically allocate memory to new node */
     char* tmp = (char*)malloc(2 * sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int));
+    
+    /* Set left and right child pointer to NULL */
+    *(char**)(tmp + LEFT_PTR_OFFSET) = NULL;
+    *(char**)(tmp + RIGHT_PTR_OFFSET) = NULL;
     
     return tmp;
 }
