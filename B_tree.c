@@ -25,7 +25,8 @@
 /* Parameter choice */
 // #define T_DEGREE 100
 #define NODE_SIZE 300
-#define WORDS_NUM 100 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 1000 // Parameter to control how many words to get from text file 
+
 
 /* Function Prototypes(main) */
 char* B_tree_create(void);
@@ -159,6 +160,7 @@ int main(int argc, char** argv) {
         i++;
     }
 
+    printf("%d total strings have been found\n", i);
 
 
     /* Free the root node */
@@ -190,14 +192,16 @@ int B_tree_search(char* node, char* array_store, const char* str) {
         }
         else if (node_is_leaf(node)){
             printf("String %s does not exist\n", str);
+            printf("The node was...\n");
+            print_node_lexigraphic_check(node);
             return 0;
         }
         else {
-            B_tree_search(*(char**)(node + INIT_PARAM_OFFSET), array_store, str);
+            return B_tree_search(*(char**)(node + INIT_PARAM_OFFSET), array_store, str);
         }
     /* Do not stop at first block */
     } else {
-        while((store = compare_second_string_move(&tmp, node, &offset, array_store, str)) <= 0) 
+        while((store = compare_second_string_move(&tmp, node, &offset, array_store, str)) < 0) 
             key_index++;
 
         if (store == 0) {
@@ -206,10 +210,12 @@ int B_tree_search(char* node, char* array_store, const char* str) {
         }
         else if (node_is_leaf(node)){
             printf("String %s does not exist\n", str);
+            printf("The node was...\n");
+            print_node_lexigraphic_check(node);
             return 0;
         }
         else {
-            B_tree_search(*(char**)(tmp), array_store, str);
+            return B_tree_search(*(char**)(tmp), array_store, str);
         }
     }
     
