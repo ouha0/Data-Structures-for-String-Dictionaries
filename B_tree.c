@@ -25,7 +25,7 @@
 /* Parameter choice */
 // #define T_DEGREE 100
 #define NODE_SIZE 300
-#define WORDS_NUM 1000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 10000 // Parameter to control how many words to get from text file 
 
 /* Function Prototypes(main) */
 char* B_tree_create(void);
