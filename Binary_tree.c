@@ -16,9 +16,12 @@
 #define STR_SMALLER -1
 #define POSITIVE 10 // This is just any integer, so it returns something 
 #define LEFT_PTR_OFFSET 0
-#define RIGHT_PTR_OFFSET sizeof(char*)
+#define RIGHT_PTR_OFFSET (sizeof(char*))
+#define INITIAL_COUNT 0
+#define ALLOCATE_OVERHEAD 8
+
 /* Data Volume */
-#define WORDS_NUM 1000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 100000 // Parameter to control how many words to get from text file 
 
 
 /* PROBLEMS:
@@ -44,11 +47,18 @@ void print_binary_node(char* node);
 
 
 
+static size_t memory_usage = 0;
+
+
 int main(int argc, char** argv) {
 
 
     FILE* file;
     char word[100]; int counter = 1;
+
+    /* Variables for measuring time */
+    struct timespec prec_start, prec_end;
+    double elapsed1, elapsed2;
     
     char word_list[WORDS_NUM][MAX_STRING_BYTES];
     
@@ -61,14 +71,18 @@ int main(int argc, char** argv) {
     }
 
 
-    char* tree_root; 
+    char* tree_root = NULL; 
     
     /* Insert all words into word_list  */
     while(fscanf(file, "%s", word) == 1) {
-        printf("The word is to insert is %s\n", word);
-        strcpy(word_list[counter - 1], word);
-        counter++;
 
+        /* Only store strings that aren't too large */
+        if (strlen(word) < MAX_STRING_BYTES) {
+            strcpy(word_list[counter - 1], word);
+            counter++;
+        }
+
+        /* Store the specified number of strings only */
         if (counter > WORDS_NUM) {
             break;
         }
@@ -76,20 +90,38 @@ int main(int argc, char** argv) {
 
     printf("Beginning binary tree word insertions\n");
     /* Insert the words into the binary tree */
+
+    clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i ++) {
+        printf("Word to insert in tree is %s\n", word_list[i]);
         binary_tree_insert(&tree_root, word_list[i]);
     }
+    clock_gettime(CLOCK_MONOTONIC, &prec_end);
+    elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
+
+
 
 
     printf("Beginning binary tree word_list searches\n");
     /* Search for the words in the binary tree */
+
+    clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i++) {
         if(!binary_tree_search(tree_root, word_list[i])) {
             /* Word not found for some reason */
             assert(0);
         }
     }
+    clock_gettime(CLOCK_MONOTONIC, &prec_end);
+    elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
+
+
+
+
+    /* Printing all the measuring variable data */
+    printf("Inserting all the strings took %.9f seconds. Searching all the strings took %.9f seconds\n", elapsed1, elapsed2);
+    printf("The total memory usage was %zu bytes\n", memory_usage);
 
 
     free(tree_root);
@@ -115,7 +147,7 @@ void binary_tree_insert(char** root_ptr, const char* str) {
 
             /* If same string, increment counter for x */
             if (store == 0) {
-                increment_counter(x);
+                return increment_counter(x);
             } else {
                 x = *(char**)(x + LEFT_PTR_OFFSET);
             }
@@ -132,6 +164,7 @@ void binary_tree_insert(char** root_ptr, const char* str) {
     char* z = create_node(str);
     if (y == NULL) {
         *root_ptr = z;
+        printf("New root\n");
     } else if (compare_key_string(z, y) < 0) {
         *(char**)(y + LEFT_PTR_OFFSET) = z;
     } else {
@@ -175,12 +208,20 @@ char* create_node(const char* str) {
     int tmp_length = strlen(str);
 
     /* Dynamically allocate memory to new node */
-    char* tmp = (char*)malloc(2 * sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int));
+    char* tmp = (char*)malloc(sizeof(char*) + sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int));
     
     /* Set left and right child pointer to NULL */
     *(char**)(tmp + LEFT_PTR_OFFSET) = NULL;
     *(char**)(tmp + RIGHT_PTR_OFFSET) = NULL;
     
+    *(int*)(tmp + 2 * sizeof(char*)) = tmp_length; 
+    memcpy(tmp + 2 * sizeof(char*) + sizeof(int), str, tmp_length + 1);
+    *(int*)(tmp + 2 * sizeof(char*) + sizeof(int) + tmp_length + 1) = INITIAL_COUNT;
+
+    /* Calculate memory usage of dynamic memory and housekeeping memory */
+    memory_usage += sizeof(char*) + sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int);
+    memory_usage += ALLOCATE_OVERHEAD;
+
     return tmp;
 }
 
@@ -200,7 +241,7 @@ void move_to_right_pointer(char** node_ptr) {
  * outputs the string length of the key. */
 int move_to_string(char** node_ptr) {
     /* Skip the left and right child pointers */
-    *node_ptr += 2 * sizeof(char*);
+    *node_ptr += sizeof(char*) + sizeof(char*);
 
     int tmp_length = *(int*)(*node_ptr); *node_ptr += sizeof(int);
 
@@ -272,7 +313,7 @@ void print_binary_node(char* node) {
     
     int tmp_counter = *(int*)node;
 
-    printf("Length: %d String: %s Count: %d", tmp_length, tmp_word, tmp_counter);
+    printf("Length: %d String: %s Count: %d \n", tmp_length, tmp_word, tmp_counter);
 
     return;
 }
