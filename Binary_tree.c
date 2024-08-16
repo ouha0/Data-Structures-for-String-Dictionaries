@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
         binary_tree_insert(&tree_root, word_list[i]);
     }
     clock_gettime(CLOCK_MONOTONIC, &prec_end);
-    elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
+    elapsed1 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
 
 
