@@ -25,7 +25,7 @@
 
 /* Parameter choice */
 // #define T_DEGREE 100
-#define NODE_SIZE 100
+#define NODE_SIZE 300
 #define WORDS_NUM 100000 // Parameter to control how many words to get from text file 
 
 
@@ -244,10 +244,24 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Find midpoint of node_y to copy to node_z */
     char* mid_ptr = node_y;
+
+    /* For checking */
+    printf("Node x is...");
+    print_node_lexigraphic_check(node_x);
+
+    printf("Node y is...");
+    print_node_lexigraphic_check(node_y);
+
+
     size_t y_mid_offset = move_mid_node(&mid_ptr); //middle key of y_node
 
     /* This is the middle key of the node_y */
     int tmp_length = *(int*)mid_ptr; // y_child middle key length
+    
+    /* Just for checking */
+    printf("Tmp length is %d. This shouldn't be too large\n", tmp_length);
+    
+    
     size_t key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
     size_t insertion_offset = key_size + sizeof(char*) + sizeof(char*); // Insertion offset to insert in node_x. (block + ptr offset)
 
@@ -259,6 +273,11 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Making sure that the pointer finds the correct child node */
     assert(*(char**)tmp_x == node_y);
+
+
+    /* Just for checking */
+    printf("Just checking some variables\n");
+    printf("Insertion offset is %zu, size to shift is %zu\n", insertion_offset, get_node_use(node_x) + 1 - key_offset);
 
 
     /* Refer to Cormen: Move W onwards and leave space for ptr, S, ptr */
@@ -287,11 +306,12 @@ int B_tree_split_child(char* node_x, char* node_y) {
     mid_ptr += key_size; y_mid_offset += key_size;
 
     /* Move following blocks of node_y to child_z including the null-byte */
-      memmove(child_z + get_init_param_offset(), mid_ptr, get_node_use(node_y) + 1 - y_mid_offset);
+    memmove(child_z + get_init_param_offset(), mid_ptr, get_node_use(node_y) + 1 - y_mid_offset);
 //    memset(mid_ptr, 0xFF, get_node_use(node_y) + 1 - y_mid_offset);
 
     update_node_use(child_z, get_node_use(child_z) + (get_node_use(node_y) - y_mid_offset));
     update_node_use(node_y, y_mid_offset - key_size);
+
 
     return 1;
 }
@@ -321,7 +341,7 @@ int B_tree_insert(char** root_ptr, const char* str) {
         *(char**)tmp = prev_root;
         update_node_use(s, get_node_use(s) + sizeof(char*));
         *(tmp + sizeof(char*)) = '\0'; //Set null-byte at end of new node 
-
+        
 
         B_tree_split_child(s, prev_root);
         B_tree_insert_nonfull(s, str);
@@ -329,6 +349,10 @@ int B_tree_insert(char** root_ptr, const char* str) {
     } else { 
 
         B_tree_insert_nonfull(*root_ptr, str);
+
+
+        // Problem: this is missing the null pointer at the end...
+        print_node_lexigraphic_check(*root_ptr);
     }
 
     return 1;
@@ -390,22 +414,41 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     // Skip child pointers when node is leaf
     if (node_is_leaf(node)) {
 
-        /* Shift everything to the right to fit the new block */
+        /* For this case, we need to add a child pointer at the start and end */
+        if (get_node_use(node) == INIT_PARAM_OFFSET) {
+            
+            /* Shift everything to the right to fit the new block */
+            block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*);
 
-        block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
+
+            memmove(tmp + block_size, tmp, get_node_use(node) + 1 - offset);
+            *(char**)(tmp) = NULL; // castes tmp to double pointer
+
+            tmp += sizeof(char*);
+            *(int*)tmp = str_length; tmp += sizeof(int); // Store strlength in key 
+            memcpy(tmp, str, str_length + 1); // Store string inside node 
+
+            tmp += str_length + 1;
+            *(int*)tmp = INITIAL_COUNT; tmp += sizeof(int);
+            *(char**)(tmp) = NULL;
+
+        } else {
+            /* Shift everything to the right to fit the new block */
+            block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
 
 
-        memmove(tmp + block_size, tmp, get_node_use(node) + 1 - offset);
-        *(char**)(tmp) = NULL; // castes tmp to double pointer
+            memmove(tmp + block_size, tmp, get_node_use(node) + 1 - offset);
+            *(char**)(tmp) = NULL; // castes tmp to double pointer
 
-        tmp += sizeof(char*);
-        *(int*)tmp = str_length; tmp += sizeof(int); // Store strlength in key 
-        memcpy(tmp, str, str_length + 1); // Store string inside node 
+            tmp += sizeof(char*);
+            *(int*)tmp = str_length; tmp += sizeof(int); // Store strlength in key 
+            memcpy(tmp, str, str_length + 1); // Store string inside node 
 
-        tmp += str_length + 1;
-        *(int*)tmp = INITIAL_COUNT; 
-        // tmp += sizeof(int); // This is not needed I think
-        
+            tmp += str_length + 1;
+            *(int*)tmp = INITIAL_COUNT; 
+            // tmp += sizeof(int); // This is not needed I think
+        }
+
         
         /* Update currently used space in the node */
         update_node_use(node, get_node_use(node) + block_size);
@@ -451,6 +494,9 @@ size_t move_mid_node(char** node_ptr) {
 
     /* Make a copy to modify (not saved) */
     char* tmp = *node_ptr;
+
+    print_node_lexigraphic_check(tmp);
+
    
     /* Variables to keep track of offset of closest key to mid point */
     size_t min_offset, min_distance; // size_t tmp_min; // tmp_min not being used
@@ -463,6 +509,12 @@ size_t move_mid_node(char** node_ptr) {
 
     /* Size of previous key to get the index */
     prev_key_size = get_single_key_size(*node_ptr + prev_start_offset);
+    
+    /* The node is not sufficiently full to perform a node-split */
+    if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size() >= get_node_use(*node_ptr)) {
+        printf("Node size parameter is too small, unable to do child split...\n");
+        assert(0);
+    }
     
     
     /* Move tmp pointer to second key of the node */
@@ -480,11 +532,31 @@ size_t move_mid_node(char** node_ptr) {
     }
 
 
+
+    /* Just checking :)) */
+    printf("Current minimum distance:");
+    print_size(min_distance);
+
+    printf("Current minimum offset:");
+    print_size(min_offset);
+    
+    printf("Previous key size:");
+    print_size(prev_key_size);
+
+
     /* Go through blocks of the node and find the key_offset that is closest to NODE_MID_SIZE */
     while(prev_distance > curr_distance) {
 
+        /* Just checking */
+        printf("Enters the while loop...\n");
+
         /* Get key size of curr_start_offset and update prev_start_offset */
         prev_key_size = get_single_key_size(tmp);
+    
+        printf("Key size:");
+        print_size(prev_key_size);
+
+
         prev_start_offset = curr_start_offset;
 
         /* Update curr_start offset to next key */
@@ -795,7 +867,7 @@ int compare_current_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_a
     *node_ptr += tmp_length + 1 + sizeof(int); // Skip the string and the counter 
     *offset_ptr += tmp_length + 1 + sizeof(int); // add string and counter offset 
 
-    return strcasecmp(tmp_array, str_cmp);
+    return strcmp(tmp_array, str_cmp);
     
 }
 
@@ -848,7 +920,7 @@ int compare_second_string_move(char** node_ptr, char* node, size_t* offset_ptr, 
     /* Copy the string in the second block to tmp array */
     memcpy(tmp_array, *node_ptr + sizeof(char*) + sizeof(int), tmp_length + 1);
 
-    return strcasecmp(tmp_array, str_cmp);
+    return strcmp(tmp_array, str_cmp);
 }
 
 /* Function that takes a node, array from stack, and string to compare as input. 
@@ -875,7 +947,7 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
     memcpy(tmp_array, node + INIT_PARAM_OFFSET + sizeof(char*) + sizeof(int), tmp_length + 1);
 
     /* return comparison results of two strings */
-    return strcasecmp(tmp_array, str_cmp);
+    return strcmp(tmp_array, str_cmp);
 }
 
 //THIS FUNCTION IS STILL BEING TESTED
@@ -898,7 +970,7 @@ int compare_middle_string(char* node, char* block, char* tmp_array, const char* 
 
     
     /* return comparison results of two strings */
-    return strcasecmp(tmp_array, str_cmp);
+    return strcmp(tmp_array, str_cmp);
 }
 
 /* Function that takes a char* node pointer. The function assumes the node points
@@ -1058,7 +1130,8 @@ void print_node_lexigraphic_check(char* node) {
     char stored_string[MAX_STRING_BYTES];
 
 
-    char prev_store[MAX_STRING_BYTES] = "a";
+    /* Null character has the smallest ASCII value */
+    char prev_store[MAX_STRING_BYTES] = "\0";
     
     // Note that memcpy is used to indicate that overlapping memory isn't the intention 
     while(offset < node_space_used) {
@@ -1068,6 +1141,7 @@ void print_node_lexigraphic_check(char* node) {
         /* Last child ptr */
         if (offset >= node_space_used) {
             printf("End of node\n");
+            assert(offset == node_space_used);
             return;
         }
         
@@ -1079,7 +1153,10 @@ void print_node_lexigraphic_check(char* node) {
         // printf("Previous string is %s, current string is %s\n", prev_store, stored_string);
 
 
-        assert(strcasecmp(prev_store, stored_string) <= 0);
+
+
+
+        assert(strcmp(prev_store, stored_string) <= 0);
         strcpy(prev_store, stored_string);
 
 
@@ -1091,6 +1168,7 @@ void print_node_lexigraphic_check(char* node) {
         fprintf(stdout, "Length:%d  ", stored_length);
         fprintf(stdout, "String:%s  ", stored_string);
         fprintf(stdout, "Counter:%d  ", stored_counter);
+
 
     }
     printf("\n");
