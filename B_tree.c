@@ -245,21 +245,10 @@ int B_tree_split_child(char* node_x, char* node_y) {
     /* Find midpoint of node_y to copy to node_z */
     char* mid_ptr = node_y;
 
-    /* For checking */
-    printf("Node x is...");
-    print_node_lexigraphic_check(node_x);
-
-    printf("Node y is...");
-    print_node_lexigraphic_check(node_y);
-
-
     size_t y_mid_offset = move_mid_node(&mid_ptr); //middle key of y_node
 
     /* This is the middle key of the node_y */
     int tmp_length = *(int*)mid_ptr; // y_child middle key length
-    
-    /* Just for checking */
-    printf("Tmp length is %d. This shouldn't be too large\n", tmp_length);
     
     
     size_t key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
@@ -273,11 +262,6 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Making sure that the pointer finds the correct child node */
     assert(*(char**)tmp_x == node_y);
-
-
-    /* Just for checking */
-    printf("Just checking some variables\n");
-    printf("Insertion offset is %zu, size to shift is %zu\n", insertion_offset, get_node_use(node_x) + 1 - key_offset);
 
 
     /* Refer to Cormen: Move W onwards and leave space for ptr, S, ptr */
@@ -349,10 +333,6 @@ int B_tree_insert(char** root_ptr, const char* str) {
     } else { 
 
         B_tree_insert_nonfull(*root_ptr, str);
-
-
-        // Problem: this is missing the null pointer at the end...
-        print_node_lexigraphic_check(*root_ptr);
     }
 
     return 1;
@@ -495,8 +475,6 @@ size_t move_mid_node(char** node_ptr) {
     /* Make a copy to modify (not saved) */
     char* tmp = *node_ptr;
 
-    print_node_lexigraphic_check(tmp);
-
    
     /* Variables to keep track of offset of closest key to mid point */
     size_t min_offset, min_distance; // size_t tmp_min; // tmp_min not being used
@@ -532,31 +510,13 @@ size_t move_mid_node(char** node_ptr) {
     }
 
 
-
-    /* Just checking :)) */
-    printf("Current minimum distance:");
-    print_size(min_distance);
-
-    printf("Current minimum offset:");
-    print_size(min_offset);
-    
-    printf("Previous key size:");
-    print_size(prev_key_size);
-
-
     /* Go through blocks of the node and find the key_offset that is closest to NODE_MID_SIZE */
     while(prev_distance > curr_distance) {
 
-        /* Just checking */
-        printf("Enters the while loop...\n");
 
         /* Get key size of curr_start_offset and update prev_start_offset */
         prev_key_size = get_single_key_size(tmp);
     
-        printf("Key size:");
-        print_size(prev_key_size);
-
-
         prev_start_offset = curr_start_offset;
 
         /* Update curr_start offset to next key */
