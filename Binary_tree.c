@@ -42,9 +42,10 @@ void move_to_right_pointer(char** node_ptr);
 int compare_key_string(char* n1, char* n2);
 int compare_str_node(const char* str, char* n1);
 void increment_counter(char* node);
-void print_binary_node(char* node);
-
-
+void print_binary_node(char* node, char* word);
+void print_node_string(char* node, char* word);
+void binary_inorder(char* root, char* word);
+void free_all_nodes(char* root);
 
 
 static size_t memory_usage = 0;
@@ -116,6 +117,10 @@ int main(int argc, char** argv) {
     elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
 
+    /* Printing all strings in order */
+    printf("The tree root is %p\n", tree_root);
+    binary_inorder(tree_root, word);
+    printf("\n\n\n\n");
 
 
 
@@ -124,7 +129,8 @@ int main(int argc, char** argv) {
     printf("The total memory usage was %zu bytes\n", memory_usage);
 
 
-    free(tree_root);
+
+    free_all_nodes(tree_root);
     fclose(file);
     return 0;
 }
@@ -176,6 +182,7 @@ void binary_tree_insert(char** root_ptr, const char* str) {
  * the node if the string is found. Otherwise, it outputs to stdout that string
  * was not found. */
 int binary_tree_search(char* root, const char* str) {
+    char tmp_word[MAX_STRING_BYTES + 1];
 
     /* Node empty or key found  */
     if (root == NULL) {
@@ -185,7 +192,7 @@ int binary_tree_search(char* root, const char* str) {
     
     if (compare_str_node(str, root) == 0) {
         printf("String is found\n");
-        print_binary_node(root);
+        print_binary_node(root, tmp_word);
         return 1;
     }
     
@@ -261,7 +268,7 @@ int compare_key_string(char* n1, char* n2) {
     memcpy(buffer_2, n2, n2_length + 1);
 
 
-    return strcasecmp(n1, n2);
+    return strcmp(n1, n2);
 }
 
 
@@ -275,7 +282,7 @@ int compare_str_node(const char* str, char* n1) {
     memcpy(buffer_1, n1, n1_length + 1);
 
 
-    return strcasecmp(str, n1);
+    return strcmp(str, n1);
 }
 
 /* Function that takes a char* node as input, and increases the counter by 1 */
@@ -292,7 +299,7 @@ void increment_counter(char* node){
 }
 
 /* Function that takes a node as input and outputs all relevant data */
-void print_binary_node(char* node) {
+void print_binary_node(char* node, char* tmp_word) {
     if (!node) {
         printf("The node is emtpy\n");
         assert(0);
@@ -308,7 +315,6 @@ void print_binary_node(char* node) {
     node += RIGHT_PTR_OFFSET + sizeof(char*);
     int tmp_length = *(int*)node; node += sizeof(int);
 
-    char tmp_word[MAX_STRING_BYTES];
     memcpy(tmp_word, node, tmp_length + 1); node += tmp_length + 1;
     
     int tmp_counter = *(int*)node;
@@ -319,3 +325,33 @@ void print_binary_node(char* node) {
 }
 
 
+
+/* This function takes the root node as input. The function prints all strings in lexigraphic ascending order */
+void binary_inorder(char* root, char* word) {
+    if (root != NULL) {
+        binary_inorder(*(char**)(root + LEFT_PTR_OFFSET), word);
+        print_node_string(root, word);
+        binary_inorder(*(char**)(root + RIGHT_PTR_OFFSET), word);
+    }
+}
+
+
+/* The function takes a node, and pointer to heap array as input. The function outputs string of the node. */
+void print_node_string(char* node, char* word) {
+    node += 2 * sizeof(char*);
+
+    int tmp_length = *(int*)node; node += sizeof(int);
+    memcpy(word, node, tmp_length + 1);
+    printf("%s ", word);
+
+}
+
+/* Function that takes the root node as input and free all tree nodes */
+void free_all_nodes(char* root) {
+    if (root != NULL)
+        return;
+
+    free_all_nodes(*(char**)(root + LEFT_PTR_OFFSET));
+    free_all_nodes(*(char**)(root + RIGHT_PTR_OFFSET));
+    free(root);
+}
