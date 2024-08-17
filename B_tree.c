@@ -36,6 +36,11 @@ int B_tree_insert(char**, const char*);
 int B_tree_insert_nonfull(char*, const char*);
 int B_tree_search(char*, char*, const char*);
 
+
+void free_B_tree(char* root);
+void print_B_tree(char* root, char* word);
+
+
 /* More important Function Prototypes */
 size_t skip_single_block(char**);
 size_t skip_child_ptr(char**);
@@ -71,7 +76,7 @@ void check_valid_pointer(char* node);
 void print_size(size_t size);
 void print_node(char*);
 void print_node_lexigraphic_check(char* node);
-void print_node_strings(char* node);
+void print_node_strings(char* node, char* word);
 void print_node_value_address(char* node);
 void print_key_string(char* key);
 
@@ -158,7 +163,7 @@ int main(int argc, char** argv) {
 
     
 
-    printf("Beginning binary tree word_list searches\n");
+    printf("Beginning binary tree word_list searches\n\n\n");
     /* Search for the words in the binary tree */
 
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
@@ -171,12 +176,15 @@ int main(int argc, char** argv) {
     clock_gettime(CLOCK_MONOTONIC, &prec_end);
     elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
     
+    /* Print all nodes */
+    print_B_tree(tree_root, word);
 
-    printf("Inserting all the strings took %.9f seconds. Searching all the strings took %.9f seconds\n", elapsed1, elapsed2);
+    printf("\n\n\n\n\n");
+    printf("Inserting %d strings took %.9f seconds. Searching all the strings took %.9f seconds\n", WORDS_NUM, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
 
     /* Free the root node */
-    free(tree_root);
+    free_B_tree(tree_root);
     fclose(file);
 
     return 0;
@@ -1112,13 +1120,8 @@ void print_node_lexigraphic_check(char* node) {
         memcpy(stored_string, ptr, stored_length + 1);
         // printf("Previous string is %s, current string is %s\n", prev_store, stored_string);
 
-
-
-
-
         assert(strcmp(prev_store, stored_string) <= 0);
         strcpy(prev_store, stored_string);
-
 
         ptr += stored_length + 1; offset += stored_length + 1;
 
@@ -1135,46 +1138,45 @@ void print_node_lexigraphic_check(char* node) {
     
 }
 
-/* Print all blocks from the start of the node */
-void print_node_strings(char* node) {
+/* Print all blocks from the start of the node. It takes the a node and 
+ * a static array as input. This function is used for printing all B_tree nodes */
+void print_node_strings(char* node, char* word) {
     check_valid_pointer(node);
+
     size_t node_space_used = get_node_use(node);
-    char* ptr = node;
-    size_t offset = 0; offset += skip_initial_parameters(&ptr);
-
-
-    /* Temp variatbles to output data to stdout */
-    int stored_length, stored_counter; 
-    char stored_string[MAX_STRING_BYTES];
-
     
-    // Note that memcpy is used to indicate that overlapping memory isn't the intention 
-    while(offset < node_space_used) {
-        printf("%p  ", (void*)*(char**)ptr);
-        ptr += sizeof(char*); offset += sizeof(char*);
-
-        /* Last child ptr */
-        if (offset >= node_space_used) {
-            printf("End of node\n");
-            return;
-        }
-        
-        /* Store the strings in temporary variables */
-        stored_length = *(int*)ptr; ptr += sizeof(int); offset += sizeof(int);
-
-        /* Storing string and String counter*/
-        memcpy(stored_string, ptr, stored_length + 1);
-        ptr += stored_length + 1; offset += stored_length + 1;
-
-        stored_counter = *(int*)ptr; ptr += sizeof(int); offset += sizeof(int);
-        
-        /* Print the data to stdout (for checking mainly) */
-        fprintf(stdout, "Length of string: %d\n", stored_length);
-        fprintf(stdout, "String: %s\n", stored_string);
-        fprintf(stdout, "String counter: %d\n", stored_counter);
-
+    if (node_space_used == INIT_PARAM_OFFSET) {
+        printf("This node has no keys. Should not happen...\n");
+        assert(0);
+        return;
     }
     
+    char* ptr = node;
+    size_t offset = skip_initial_parameters(&ptr);
+
+    int stored_length, stored_counter; 
+
+    while(offset < node_space_used) {
+        ptr += sizeof(char*); offset += sizeof(char*);
+
+        /* When the pointer has just passed the ending child ptr */
+        if (offset >= node_space_used) {
+            assert(offset == node_space_used);
+            return;
+        }
+
+        /* Store the strings in temporary variables */
+        stored_length = *(int*)ptr; ptr += sizeof(int); offset += sizeof(int);
+        memcpy(word, ptr, stored_length + 1);
+       
+        /* Print the string of the current block */
+        printf("%s ", word);
+
+        /* Update pointer and offset for next iteration*/
+        ptr += stored_length + 1 + sizeof(int);
+        offset += stored_length + 1 + sizeof(int);
+
+    }
 }
 
 
@@ -1230,3 +1232,72 @@ void print_size(size_t size) {
     printf("The size offset is %zu\n", size);
     return;
 }
+
+
+
+/* Important Measuring Functions */
+
+/* Function that takes the tree root as input and frees memory of all nodes */
+void free_B_tree(char* root) {
+    if (root == NULL)
+        return;
+
+    char* ptr = root; int tmp_length;
+    size_t offset = skip_initial_parameters(&ptr);
+    size_t node_space_used = get_node_use(root);
+
+    /* Free each child ptr node */
+    while(offset < node_space_used) {
+        /* Recurse child ptr */
+        free_B_tree(*(char**)(ptr));
+        ptr += sizeof(char*); offset += sizeof(char*);
+
+        if (offset >= node_space_used) {
+            break;
+        }
+        
+        /* Move pointer and offset to the next child ptr */
+        tmp_length = *(int*)(ptr); 
+        ptr += sizeof(int) + tmp_length + 1 + sizeof(int);
+        offset += sizeof(int) + tmp_length + 1 + sizeof(int);
+    }
+
+    /* Free the node */
+    free(root);
+}
+
+/* Function that prints all B_tree nodes strings */
+void print_B_tree(char* root, char* word) {
+    if (root == NULL) 
+        return;
+
+    /* Print the whole node */
+    print_node_strings(root, word);
+    
+    /* Recurse and print all child ptr nodes */
+    char* ptr = root; int tmp_length;
+    size_t offset = skip_initial_parameters(&ptr);
+    size_t node_space_used = get_node_use(root);
+
+    /* Free each child ptr node */
+    while(offset < node_space_used) {
+        /* Recurse child ptr */
+        print_B_tree(*(char**)(ptr), word);
+        ptr += sizeof(char*); offset += sizeof(char*);
+
+        if (offset >= node_space_used) {
+            break;
+        }
+        
+        /* Move pointer and offset to the next child ptr */
+        tmp_length = *(int*)(ptr); 
+        ptr += sizeof(int) + tmp_length + 1 + sizeof(int);
+        offset += sizeof(int) + tmp_length + 1 + sizeof(int);
+    }
+
+}
+
+
+
+
+
