@@ -113,6 +113,7 @@ void print_current_block_address(char* node);
 
 
 static size_t memory_usage = 0;
+static int key_counter = 0;
 
 int main(int argc, char** argv) {
     
@@ -163,7 +164,7 @@ int main(int argc, char** argv) {
 
     
 
-    printf("Beginning binary tree word_list searches\n\n\n");
+    printf("Beginning B-tree word_list searches\n\n\n");
     /* Search for the words in the binary tree */
 
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
@@ -182,6 +183,8 @@ int main(int argc, char** argv) {
     printf("\n\n\n\n\n");
     printf("Inserting %d strings took %.9f seconds. Searching all the strings took %.9f seconds\n", WORDS_NUM, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
+    printf("Keys printed %d should be same as number of words inserted %d\n", key_counter, WORDS_NUM);
+
 
     /* Free the root node */
     free_B_tree(tree_root);
@@ -202,11 +205,12 @@ int B_tree_search(char* node, char* array_store, const char* str) {
     char* tmp = node; int store;
     size_t offset = skip_initial_parameters(&tmp);
 
-    int key_index = 1;
+    // int key_index = 1;
    
     /* If stop at first block */
     if ((store = compare_current_string(node, array_store, str)) >= 0) {
         if (store == 0) {
+            // printf("Found the word at index %d. The word to find is %s. The word stored is %s\n", key_index, str, array_store);
             return 1;
         }
         else if (node_is_leaf(node)){
@@ -217,10 +221,11 @@ int B_tree_search(char* node, char* array_store, const char* str) {
         }
     /* Do not stop at first block */
     } else {
-        while((store = compare_second_string_move(&tmp, node, &offset, array_store, str)) < 0) 
-            key_index++;
+        while((store = compare_second_string_move(&tmp, node, &offset, array_store, str)) < 0);
+            // key_index++;
 
         if (store == 0) {
+            // printf("Found the word at index %d. The word to find is %s. The word stored is %s\n", key_index, str, array_store);
             return 1;
         }
         else if (node_is_leaf(node)){
@@ -231,7 +236,7 @@ int B_tree_search(char* node, char* array_store, const char* str) {
         }
     }
     
-    return 1;
+    return 0;
 
 }
 
@@ -336,6 +341,8 @@ int B_tree_insert(char** root_ptr, const char* str) {
         
 
         B_tree_split_child(s, prev_root);
+
+        print_split_working();
         B_tree_insert_nonfull(s, str);
 
     } else { 
@@ -451,6 +458,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         if (get_node_use(child) + get_max_block_size() + 1 > NODE_SIZE) {
 
             B_tree_split_child(node, child);
+            print_split_working();
 
 
             /* If str is larger than current key in parent, shift tmp by one block */
@@ -1270,9 +1278,6 @@ void free_B_tree(char* root) {
 void print_B_tree(char* root, char* word) {
     if (root == NULL) 
         return;
-
-    /* Print the whole node */
-    print_node_strings(root, word);
     
     /* Recurse and print all child ptr nodes */
     char* ptr = root; int tmp_length;
@@ -1280,20 +1285,29 @@ void print_B_tree(char* root, char* word) {
     size_t node_space_used = get_node_use(root);
 
     /* Free each child ptr node */
-    while(offset < node_space_used) {
+    while(offset + sizeof(char*) < node_space_used) {
         /* Recurse child ptr */
-        print_B_tree(*(char**)(ptr), word);
+        if (!node_is_leaf(root))
+            print_B_tree(*(char**)(ptr), word);
+ 
         ptr += sizeof(char*); offset += sizeof(char*);
 
-        if (offset >= node_space_used) {
-            break;
-        }
-        
         /* Move pointer and offset to the next child ptr */
         tmp_length = *(int*)(ptr); 
-        ptr += sizeof(int) + tmp_length + 1 + sizeof(int);
-        offset += sizeof(int) + tmp_length + 1 + sizeof(int);
-    }
+        ptr += sizeof(int); offset += sizeof(int);
+
+        /* Print the string out */
+        memcpy(word, ptr, tmp_length + 1);
+        printf("%s ", word);
+        key_counter++;
+
+        ptr += tmp_length + 1 + sizeof(int);
+        offset += tmp_length + 1 + sizeof(int);
+
+    }    
+
+    if (!node_is_leaf(root))
+        print_B_tree(*(char**)(ptr), word);
 
 }
 
