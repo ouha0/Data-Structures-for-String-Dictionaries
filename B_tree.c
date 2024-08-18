@@ -79,6 +79,7 @@ void print_node_lexigraphic_check(char* node);
 void print_node_strings(char* node, char* word);
 void print_node_value_address(char* node);
 void print_key_string(char* key);
+// void print_word_array(char (*words)[MAX_STRING_BYTES], int size);
 
 /* Function Prototypes for text processing */
 
@@ -137,7 +138,6 @@ int main(int argc, char** argv) {
     char* tree_root = B_tree_create();
     
 
-    
     /* Insert all words into word_list  */
     while(fscanf(file, "%s", word) == 1) {
 
@@ -145,6 +145,9 @@ int main(int argc, char** argv) {
         if (strlen(word) < MAX_STRING_BYTES) {
             strcpy(word_list[counter - 1], word);
             counter++;
+            
+            /* Print read file word to stdout */
+            //printf("%s ", word);
         }
 
         /* Store the specified number of strings only */
@@ -179,6 +182,11 @@ int main(int argc, char** argv) {
     
     /* Print all nodes */
     print_B_tree(tree_root, word);
+
+
+    /* Print word list array */
+    // print_word_array(word_list, counter);
+
 
     printf("\n\n\n\n\n");
     printf("Inserting %d strings took %.9f seconds. Searching all the strings took %.9f seconds\n", WORDS_NUM, elapsed1, elapsed2);
@@ -342,7 +350,6 @@ int B_tree_insert(char** root_ptr, const char* str) {
 
         B_tree_split_child(s, prev_root);
 
-        print_split_working();
         B_tree_insert_nonfull(s, str);
 
     } else { 
@@ -458,7 +465,6 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         if (get_node_use(child) + get_max_block_size() + 1 > NODE_SIZE) {
 
             B_tree_split_child(node, child);
-            print_split_working();
 
 
             /* If str is larger than current key in parent, shift tmp by one block */
@@ -1312,6 +1318,12 @@ void print_B_tree(char* root, char* word) {
 }
 
 
-
+/* Function that takes a pointer to an array of words, and size of the array. The function prints 
+ * all words of the array of words */
+//void print_word_array(char (*word_list)[MAX_STRING_BYTES], int size) {
+//    for (int i = 0; i < size - 1; i++) {
+//        printf("%s ", word_list[i]);
+//    }
+//}
 
 
