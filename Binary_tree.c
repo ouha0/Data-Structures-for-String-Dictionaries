@@ -23,7 +23,7 @@
 #define PRINT_TOGGLE 0
 
 /* Data Volume */
-#define WORDS_NUM 10000000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 100000 // Parameter to control how many words to get from text file 
 
 
 /* PROBLEMS:
@@ -243,7 +243,7 @@ char* create_node(const char* str) {
     *(int*)(tmp + 2 * sizeof(char*) + sizeof(int) + tmp_length + 1) = INITIAL_COUNT;
 
     /* Calculate memory usage of dynamic memory and housekeeping memory */
-    memory_usage += sizeof(char*) + sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int);
+    memory_usage += (sizeof(char*) + sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int));
     memory_usage += ALLOCATE_OVERHEAD;
 
     return tmp;

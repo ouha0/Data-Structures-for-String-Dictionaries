@@ -26,9 +26,9 @@
 #define PRINT_TOGGLE 0
 
 /* Parameter choice */
-// #define T_DEGREE 100
-#define NODE_SIZE 300
-#define WORDS_NUM 10000000 // Parameter to control how many words to get from text file 
+// #define T_DEGREE 10
+#define NODE_SIZE 1000
+#define WORDS_NUM 100000 // Parameter to control how many words to get from text file 
 
 
 /* Function Prototypes(main) */
@@ -287,9 +287,6 @@ int B_tree_search(char* node, char* array_store, const char* str) {
 int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Original nodes */
-    printf("\n\n\nOriginal nodes\n\n\n");
-    print_node_lexigraphic_check(node_x);
-    print_node_lexigraphic_check(node_y);
 
 
     /* Create new child node z (sibling of y). Note that node_x is the parent node. node_y and node_z are the child nodes */
@@ -349,17 +346,6 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
     update_node_use(child_z, get_node_use(child_z) + (get_node_use(node_y) - y_mid_offset));
     update_node_use(node_y, y_mid_offset - key_size);
-
-    if (get_node_use(node_x) == 17 || get_node_use(node_y) == 17 || get_node_use(child_z) == 17 ) {
-        printf("\n\n\nAfter node split function\n\n\n");
-        print_node_lexigraphic_check(node_x);
-        print_node_lexigraphic_check(node_y);
-        print_node_lexigraphic_check(child_z);
-    }
-
-    assert(get_node_use(node_x) != 17); 
-    assert(get_node_use(node_y) != 17); 
-    assert(get_node_use(child_z) != 17); 
 
 
     return 1;
@@ -542,6 +528,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
 // Need to fix, stop at key or ptr
 size_t move_mid_node(char** node_ptr) {
 
+    size_t node_used = get_node_use(*node_ptr);
 
     /* Sanity Check */
     if (!node_ptr) {
@@ -558,7 +545,7 @@ size_t move_mid_node(char** node_ptr) {
     size_t prev_distance, curr_distance;
 
     /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
-    size_t prev_start_offset = 0; size_t prev_key_size;
+    size_t prev_start_offset = 0; size_t prev_key_size, curr_key_size;
     prev_start_offset += get_init_param_offset();
     prev_start_offset += sizeof(char*);
 
@@ -598,18 +585,21 @@ size_t move_mid_node(char** node_ptr) {
 
         /* Update curr_start offset to next key */
         curr_start_offset += skip_key_to_key(&tmp);
+
+        curr_key_size = get_single_key_size(tmp);
+
         
         /* Cacluate the new distances between the keys and the node mid point */
         prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1));
         curr_distance = fabs(NODE_MID_SIZE - curr_start_offset);
 
         /* Update the min_offset and min_distance accordingly for next while loop */
-        if (prev_distance < min_distance) {
+        if ((prev_distance < min_distance) & (prev_start_offset + prev_key_size + sizeof(char*) < node_used) ) {
             min_distance = prev_distance;
             min_offset = prev_start_offset;
         }
 
-        if (curr_distance < min_distance) {
+        if ((curr_distance < min_distance) & (curr_start_offset + curr_key_size + sizeof(char*) < node_used)) {
             min_distance = curr_distance;
             min_offset = curr_start_offset;
         }     
@@ -642,7 +632,7 @@ char* initialize_node(bool is_leaf, size_t node_size) {
     *(size_t*)(tmp) = INITIAL_NODE_SIZE_USE; tmp += sizeof(size_t); // Initialize curr_node_size_use parameter 
     *tmp = '\0'; // End node with null-byte
     
-    memory_usage += node_size * sizeof(char);
+    memory_usage += (node_size * sizeof(char));
     memory_usage += ALLOCATE_OVERHEAD;
 
     return node;
@@ -981,10 +971,6 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
 
     /* Get the string from current block and store in temporary array */
     int tmp_length = get_str_length(node + INIT_PARAM_OFFSET);
-    if (tmp_length < 0) {
-        printf("Node space currently used is %zu\n", get_node_use(node));
-        print_node_lexigraphic_check(node);
-    }
 
     assert(tmp_length >= 0);
     memcpy(tmp_array, node + INIT_PARAM_OFFSET + sizeof(char*) + sizeof(int), tmp_length + 1);
