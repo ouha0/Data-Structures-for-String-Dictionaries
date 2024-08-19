@@ -111,7 +111,8 @@ void print_current_block_address(char* node);
 /* Some B-tree functions:
  * Tree search, Create empty tree, Split child, Insert key, Insert key non-full, delete key */
 
-/* Problems: Note that if node == nullbyte probably isn't needed in print current block */
+
+/* Problem: Currently, node does not satisfy lower bound "n >= t - 1" */
 
 
 
@@ -285,6 +286,11 @@ int B_tree_search(char* node, char* array_store, const char* str) {
 // Node_x is the root, node_y is the child
 int B_tree_split_child(char* node_x, char* node_y) {
 
+    /* Original nodes */
+    printf("\n\n\nOriginal nodes\n\n\n");
+    print_node_lexigraphic_check(node_x);
+    print_node_lexigraphic_check(node_y);
+
 
     /* Create new child node z (sibling of y). Note that node_x is the parent node. node_y and node_z are the child nodes */
     // char* child_y = node_y;
@@ -344,6 +350,17 @@ int B_tree_split_child(char* node_x, char* node_y) {
     update_node_use(child_z, get_node_use(child_z) + (get_node_use(node_y) - y_mid_offset));
     update_node_use(node_y, y_mid_offset - key_size);
 
+    if (get_node_use(node_x) == 17 || get_node_use(node_y) == 17 || get_node_use(child_z) == 17 ) {
+        printf("\n\n\nAfter node split function\n\n\n");
+        print_node_lexigraphic_check(node_x);
+        print_node_lexigraphic_check(node_y);
+        print_node_lexigraphic_check(child_z);
+    }
+
+    assert(get_node_use(node_x) != 17); 
+    assert(get_node_use(node_y) != 17); 
+    assert(get_node_use(child_z) != 17); 
+
 
     return 1;
 }
@@ -374,13 +391,16 @@ int B_tree_insert(char** root_ptr, const char* str) {
         update_node_use(s, get_node_use(s) + sizeof(char*));
         *(tmp + sizeof(char*)) = '\0'; //Set null-byte at end of new node 
         
-
+        /* Just checking */
+        assert(get_node_use(prev_root) >= NODE_SIZE / 2);
         B_tree_split_child(s, prev_root);
 
+        assert(get_node_use(s) != 17);
         B_tree_insert_nonfull(s, str);
 
     } else { 
 
+        assert(get_node_use(*root_ptr) != 17);
         B_tree_insert_nonfull(*root_ptr, str);
     }
 
@@ -487,20 +507,28 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     } else {
         
         char* child = get_child_node(tmp);
+        assert(get_node_use(child) != 17);
         
         /* Split the child node if full after inserting key */
         if (get_node_use(child) + get_max_block_size() + 1 > NODE_SIZE) {
 
+            /* Just a check */
             B_tree_split_child(node, child);
-
+            assert(get_node_use(child) != 17);
 
             /* If str is larger than current key in parent, shift tmp by one block */
             if (compare_middle_string(node, tmp, tmp_array, str) < 0) {
                 skip_single_block(&tmp);
 
                 child = get_child_node(tmp);
+                assert(get_node_use(child) != 17);
             } 
+            /* After Split */
+            assert(get_node_use(child) != 17);
         }
+
+        /* Problem is here ... */
+        assert(get_node_use(child) != 17);
         return B_tree_insert_nonfull(child, str);
     }
 }
@@ -953,6 +981,12 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
 
     /* Get the string from current block and store in temporary array */
     int tmp_length = get_str_length(node + INIT_PARAM_OFFSET);
+    if (tmp_length < 0) {
+        printf("Node space currently used is %zu\n", get_node_use(node));
+        print_node_lexigraphic_check(node);
+    }
+
+    assert(tmp_length >= 0);
     memcpy(tmp_array, node + INIT_PARAM_OFFSET + sizeof(char*) + sizeof(int), tmp_length + 1);
 
     /* return comparison results of two strings */
@@ -1119,7 +1153,7 @@ void print_node(char* node) {
 /* Print all blocks from the start of the node */
 void print_node_lexigraphic_check(char* node) {
     check_valid_pointer(node);
-    printf("\n\nPrinting the whole node\n\n");
+    printf("\nPrinting the whole node\n");
     
 
     size_t node_space_used = get_node_use(node);
