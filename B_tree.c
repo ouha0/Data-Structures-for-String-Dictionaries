@@ -211,7 +211,7 @@ int main(int argc, char** argv) {
     printf("\n\n\n\n\n");
     printf("There are %d non-unique strings in the B-tree, there should be %d non-unique strings (inserted strings)\n",
            non_unique_key_counter, WORDS_NUM);
-    printf("Inserting %d non-unique strings took %.9f seconds. Searching all the strings took %.9f seconds\n", WORDS_NUM, elapsed1, elapsed2);
+    printf("Inserting %d non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", WORDS_NUM, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
     printf("There are %d unique keys in the B-tree\n", unique_key_counter);
 

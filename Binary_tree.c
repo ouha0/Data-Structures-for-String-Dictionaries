@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
 
 
     /* Printing all the measuring variable data */
-    printf("Inserting %d non-unique strings took %.9f seconds. Searching all the strings took %.9f seconds\n", WORDS_NUM, elapsed1, elapsed2);
+    printf("Inserting %d non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", WORDS_NUM, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
     printf("There are %d unique keys in the Binary tree\n", unique_key_counter);
 
