@@ -17,11 +17,13 @@
 #define POSITIVE 10 // This is just any integer, so it returns something 
 #define LEFT_PTR_OFFSET 0
 #define RIGHT_PTR_OFFSET (sizeof(char*))
-#define INITIAL_COUNT 0
+#define INITIAL_COUNT 1
 #define ALLOCATE_OVERHEAD 8
 
+#define PRINT_TOGGLE 0
+
 /* Data Volume */
-#define WORDS_NUM 100000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 10000000 // Parameter to control how many words to get from text file 
 
 
 /* PROBLEMS:
@@ -47,7 +49,13 @@ void print_node_string(char* node, char* word);
 void binary_inorder(char* root, char* word);
 void free_all_nodes(char* root);
 
+void free_array_list(char** word_list);
 
+
+
+/* Measuring variables */
+static int non_unique_key_counter = 0;
+static int unique_key_counter = 0;
 static size_t memory_usage = 0;
 
 
@@ -55,13 +63,18 @@ int main(int argc, char** argv) {
 
 
     FILE* file;
-    char word[100]; int counter = 1;
+    char word[100]; int counter = 1, str_length;
 
     /* Variables for measuring time */
     struct timespec prec_start, prec_end;
     double elapsed1, elapsed2;
     
-    char word_list[WORDS_NUM][MAX_STRING_BYTES];
+    /* Row allocation */
+    char **word_list = (char**)malloc(sizeof(char*) * WORDS_NUM);
+    if (!word_list) {
+        printf("Invalid word_list allocation\n");
+        return 1;
+    }
     
 
 
@@ -78,7 +91,8 @@ int main(int argc, char** argv) {
     while(fscanf(file, "%s", word) == 1) {
 
         /* Only store strings that aren't too large */
-        if (strlen(word) < MAX_STRING_BYTES) {
+        if ((str_length = strlen(word)) < MAX_STRING_BYTES) {
+            word_list[counter - 1] = (char*)malloc(sizeof(char) * (str_length + 1));
             strcpy(word_list[counter - 1], word);
             counter++;
         }
@@ -94,7 +108,7 @@ int main(int argc, char** argv) {
 
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i ++) {
-        printf("Word to insert in tree is %s\n", word_list[i]);
+        // printf("Word to insert in tree is %s\n", word_list[i]);
         binary_tree_insert(&tree_root, word_list[i]);
     }
     clock_gettime(CLOCK_MONOTONIC, &prec_end);
@@ -118,19 +132,21 @@ int main(int argc, char** argv) {
 
 
     /* Printing all strings in order */
-    printf("The tree root is %p\n", tree_root);
+    printf("Printing all Binary tree keys\n\n\n");
     binary_inorder(tree_root, word);
     printf("\n\n\n\n");
 
 
 
     /* Printing all the measuring variable data */
-    printf("Inserting all the strings took %.9f seconds. Searching all the strings took %.9f seconds\n", elapsed1, elapsed2);
+    printf("Inserting %d non-unique strings took %.9f seconds. Searching all the strings took %.9f seconds\n", WORDS_NUM, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
+    printf("There are %d unique keys in the Binary tree\n", unique_key_counter);
 
 
 
     free_all_nodes(tree_root);
+    free_array_list(word_list);
     fclose(file);
     return 0;
 }
@@ -187,12 +203,13 @@ int binary_tree_search(char* root, const char* str) {
     /* Node empty or key found  */
     if (root == NULL) {
         printf("String is not found\n");
+        assert(0); // String should always be found
         return 0;
     } 
     
     if (compare_str_node(str, root) == 0) {
-        printf("String is found\n");
-        print_binary_node(root, tmp_word);
+        // printf("String is found\n");
+        // print_binary_node(root, tmp_word);
         return 1;
     }
     
@@ -336,13 +353,25 @@ void binary_inorder(char* root, char* word) {
 }
 
 
-/* The function takes a node, and pointer to heap array as input. The function outputs string of the node. */
+/* The function takes a node, and pointer to heap array as input. The function outputs string of the node.
+ * Note that this function also increments unique and non-unique key counter. */
 void print_node_string(char* node, char* word) {
     node += 2 * sizeof(char*);
 
     int tmp_length = *(int*)node; node += sizeof(int);
     memcpy(word, node, tmp_length + 1);
-    printf("%s ", word);
+
+    if (PRINT_TOGGLE)
+        printf("%s ", word);
+
+    /* Store the counter */
+    node += tmp_length + 1;
+    int tmp_counter = *(int*)node;
+
+    /* Increment unique and non unique keys correctly */
+    non_unique_key_counter += tmp_counter;
+    unique_key_counter++;
+
 
 }
 
@@ -354,4 +383,16 @@ void free_all_nodes(char* root) {
     free_all_nodes(*(char**)(root + LEFT_PTR_OFFSET));
     free_all_nodes(*(char**)(root + RIGHT_PTR_OFFSET));
     free(root);
+}
+
+
+
+/* Function that takes as input a pointer to a char** 2d array of strings. The funtion frees all strings in the array */
+void free_array_list(char** word_list) {
+    /* Free columns */
+    for (int i = 0; i < WORDS_NUM; i++) {
+        free(word_list[i]);
+    }
+    /* Free the row */
+    free(word_list);
 }
