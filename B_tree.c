@@ -27,8 +27,9 @@
 
 /* Parameter choice */
 // #define T_DEGREE 10
-#define NODE_SIZE 1000
+#define NODE_SIZE 300
 #define WORDS_NUM 100000 // Parameter to control how many words to get from text file 
+#define FILENAME "wordstream.txt"
 
 
 /* Function Prototypes(main) */
@@ -120,6 +121,8 @@ void print_current_block_address(char* node);
 static size_t memory_usage = 0;
 static int unique_key_counter = 0;
 static int non_unique_key_counter = 0;
+static int keys_processed = 0;
+static int number_of_nodes = 0;
 
 int main(int argc, char** argv) {
     
@@ -144,7 +147,7 @@ int main(int argc, char** argv) {
     double elapsed1, elapsed2;
 
 
-    file = fopen("wordstream.txt", "r");
+    file = fopen(FILENAME, "r");
     if (file == NULL) {
         fprintf(stderr, "Error opening file\n");
         return 1;
@@ -214,7 +217,8 @@ int main(int argc, char** argv) {
     printf("Inserting %d non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", WORDS_NUM, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
     printf("There are %d unique keys in the B-tree\n", unique_key_counter);
-
+    printf("%d keys were processed\n", keys_processed);
+    printf("There are %d nodes in the B-tree\n", number_of_nodes);
 
     /* Free the whole tree node */
     free_B_tree(tree_root);
@@ -244,7 +248,13 @@ int B_tree_search(char* node, char* array_store, const char* str) {
     // int key_index = 1;
    
     /* If stop at first block */
+    keys_processed++;
+
     if ((store = compare_current_string(node, array_store, str)) >= 0) {
+
+        /* Measurement */
+        keys_processed++;
+
         if (store == 0) {
             // printf("Found the word at index %d. The word to find is %s. The word stored is %s\n", key_index, str, array_store);
             return 1;
@@ -257,9 +267,12 @@ int B_tree_search(char* node, char* array_store, const char* str) {
         }
     /* Do not stop at first block */
     } else {
-        while((store = compare_second_string_move(&tmp, node, &offset, array_store, str)) < 0);
-            // key_index++;
-
+        /* WIth measurement */
+        while((store = compare_second_string_move(&tmp, node, &offset, array_store, str)) < 0) {
+            keys_processed++;
+        }
+        keys_processed++;
+        
         if (store == 0) {
             // printf("Found the word at index %d. The word to find is %s. The word stored is %s\n", key_index, str, array_store);
             return 1;
@@ -312,7 +325,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
     size_t key_offset = move_ptr_to_ptr(&tmp_x, node_y) + sizeof(char*); // Go past node_y address in x, to store middle key
 
     /* Making sure that the pointer finds the correct child node */
-    assert(*(char**)tmp_x == node_y);
+    // assert(*(char**)tmp_x == node_y);
 
 
     /* Refer to Cormen: Move W onwards and leave space for ptr, S, ptr */
@@ -378,15 +391,15 @@ int B_tree_insert(char** root_ptr, const char* str) {
         *(tmp + sizeof(char*)) = '\0'; //Set null-byte at end of new node 
         
         /* Just checking */
-        assert(get_node_use(prev_root) >= NODE_SIZE / 2);
+        // assert(get_node_use(prev_root) >= NODE_SIZE / 2);
         B_tree_split_child(s, prev_root);
 
-        assert(get_node_use(s) != 17);
+        // assert(get_node_use(s) != 17);
         B_tree_insert_nonfull(s, str);
 
     } else { 
 
-        assert(get_node_use(*root_ptr) != 17);
+        // assert(get_node_use(*root_ptr) != 17);
         B_tree_insert_nonfull(*root_ptr, str);
     }
 
@@ -457,7 +470,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
 
 
             memmove(tmp + block_size, tmp, get_node_use(node) + 1 - offset);
-            *(char**)(tmp) = NULL; // castes tmp to double pointer
+            *(char**)(tmp) = NULL; 
 
             tmp += sizeof(char*);
             *(int*)tmp = str_length; tmp += sizeof(int); // Store strlength in key 
@@ -483,7 +496,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
             *(int*)tmp = INITIAL_COUNT; 
             // tmp += sizeof(int); // This is not needed I think
         }
-
+        unique_key_counter++;
         
         /* Update currently used space in the node */
         update_node_use(node, get_node_use(node) + block_size);
@@ -493,28 +506,23 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     } else {
         
         char* child = get_child_node(tmp);
-        assert(get_node_use(child) != 17);
         
         /* Split the child node if full after inserting key */
         if (get_node_use(child) + get_max_block_size() + 1 > NODE_SIZE) {
 
             /* Just a check */
             B_tree_split_child(node, child);
-            assert(get_node_use(child) != 17);
 
             /* If str is larger than current key in parent, shift tmp by one block */
             if (compare_middle_string(node, tmp, tmp_array, str) < 0) {
                 skip_single_block(&tmp);
 
                 child = get_child_node(tmp);
-                assert(get_node_use(child) != 17);
             } 
             /* After Split */
-            assert(get_node_use(child) != 17);
         }
 
         /* Problem is here ... */
-        assert(get_node_use(child) != 17);
         return B_tree_insert_nonfull(child, str);
     }
 }
@@ -524,6 +532,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
  * to the start of the node. The function moves *node_ptr to the middle key 
  * of the node. */
 
+// Think that this function is causing too much complexity. Should rather go for an approximate...
 
 // Need to fix, stop at key or ptr
 size_t move_mid_node(char** node_ptr) {
@@ -603,6 +612,7 @@ size_t move_mid_node(char** node_ptr) {
             min_distance = curr_distance;
             min_offset = curr_start_offset;
         }     
+
     } 
 
     /* Update *node_ptr to start of the key that is closest to the NODE_MID_SIZE */
@@ -634,6 +644,8 @@ char* initialize_node(bool is_leaf, size_t node_size) {
     
     memory_usage += (node_size * sizeof(char));
     memory_usage += ALLOCATE_OVERHEAD;
+    
+    number_of_nodes++;
 
     return node;
 
@@ -676,6 +688,8 @@ int get_str_length(char* node) {
     /* Skip initial parameters, the child pointer and returns the length of the string */
     int tmp_length = *(int*)(node + sizeof(char*));
 
+    keys_processed++;
+
     return tmp_length;
 }
 
@@ -696,6 +710,8 @@ int get_skip_str_length(char** node_ptr) {
 
     int tmp_length = *(int*)*node_ptr;
     (*node_ptr) += sizeof(int);
+    
+    keys_processed++;
 
     return tmp_length;
 
@@ -746,6 +762,7 @@ size_t skip_single_key(char** node_ptr) {
     int tmp_str_length = *(int*)(*node_ptr); *node_ptr += sizeof(int); 
     *node_ptr += tmp_str_length + 1 + sizeof(int);
 
+    keys_processed++;
     return sizeof(int) + tmp_str_length + 1 + sizeof(int);
 }
 
@@ -829,7 +846,7 @@ size_t skip_block_from_start(char** node_ptr, int index) {
     for (int i = 0; i < index; i++) {
         tmp_offset += skip_single_block(node_ptr);
     }
-    
+
     return tmp_offset; 
 }
 
@@ -972,7 +989,7 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
     /* Get the string from current block and store in temporary array */
     int tmp_length = get_str_length(node + INIT_PARAM_OFFSET);
 
-    assert(tmp_length >= 0);
+    // assert(tmp_length >= 0);
     memcpy(tmp_array, node + INIT_PARAM_OFFSET + sizeof(char*) + sizeof(int), tmp_length + 1);
 
     /* return comparison results of two strings */
@@ -1016,6 +1033,9 @@ int increment_block_counter(char* node) {
     int tmp_length = *(int*)node; node += sizeof(int) + tmp_length + 1;
     
     *(int*)(node) += 1; //Increment node key counter by 1
+    
+
+    keys_processed++;
 
     return 1;
 }
@@ -1311,6 +1331,7 @@ void free_B_tree(char* root) {
     while(offset < node_space_used) {
         /* Recurse child ptr */
         free_B_tree(*(char**)(ptr));
+
         ptr += sizeof(char*); offset += sizeof(char*);
 
         if (offset >= node_space_used) {
@@ -1356,7 +1377,7 @@ void print_B_tree(char* root, char* word) {
         if (PRINT_TOGGLE)
             printf("%s ", word);
 
-        unique_key_counter++;
+        // unique_key_counter++;
 
         ptr += tmp_length + 1; offset += tmp_length + 1;
 

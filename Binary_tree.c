@@ -19,6 +19,8 @@
 #define RIGHT_PTR_OFFSET (sizeof(char*))
 #define INITIAL_COUNT 1
 #define ALLOCATE_OVERHEAD 8
+#define FILENAME "wordstream.txt"
+// #define FILENAME "wikipedia_with_cap.txt"
 
 #define PRINT_TOGGLE 0
 
@@ -57,7 +59,8 @@ void free_array_list(char** word_list);
 static int non_unique_key_counter = 0;
 static int unique_key_counter = 0;
 static size_t memory_usage = 0;
-
+static int keys_processed = 0;
+static int number_of_nodes = 0;
 
 int main(int argc, char** argv) {
 
@@ -78,7 +81,7 @@ int main(int argc, char** argv) {
     
 
 
-    file = fopen("wordstream.txt", "r");
+    file = fopen(FILENAME, "r");
     if (file == NULL) {
         fprintf(stderr, "Error opening file\n");
         return 1;
@@ -142,6 +145,8 @@ int main(int argc, char** argv) {
     printf("Inserting %d non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", WORDS_NUM, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
     printf("There are %d unique keys in the Binary tree\n", unique_key_counter);
+    printf("%d keys were processed\n", keys_processed);
+    printf("There are %d nodes in the Binary tree\n", number_of_nodes);
 
 
 
@@ -246,6 +251,8 @@ char* create_node(const char* str) {
     memory_usage += (sizeof(char*) + sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int));
     memory_usage += ALLOCATE_OVERHEAD;
 
+    number_of_nodes++;
+
     return tmp;
 }
 
@@ -284,6 +291,7 @@ int compare_key_string(char* n1, char* n2) {
     memcpy(buffer_1, n1, n1_length + 1);
     memcpy(buffer_2, n2, n2_length + 1);
 
+    keys_processed += 2;
 
     return strcmp(n1, n2);
 }
@@ -299,6 +307,7 @@ int compare_str_node(const char* str, char* n1) {
     memcpy(buffer_1, n1, n1_length + 1);
 
 
+    keys_processed++;
     return strcmp(str, n1);
 }
 
@@ -313,6 +322,7 @@ void increment_counter(char* node){
     /* Increase the counter by 1 */
     *(int*)node += 1;
 
+    keys_processed++;
 }
 
 /* Function that takes a node as input and outputs all relevant data */
