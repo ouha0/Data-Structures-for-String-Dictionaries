@@ -28,7 +28,7 @@
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 300
-#define WORDS_NUM 100000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 10000000 // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 
 
@@ -57,7 +57,7 @@ size_t skip_key_to_key(char**);
 size_t move_mid_node(char**);
 int update_node_use(char*, size_t);
 int compare_current_string_move(char**, size_t*, char*, const char*);
-int compare_second_string_move(char** node_ptr, char*node, size_t* offset_ptr, char* tmp_array, 
+int compare_second_string_move(char** node_ptr, size_t node_size, size_t* offset_ptr, char* tmp_array, 
                           const char* str_cmp);
 int compare_current_string(char* node, char* tmp_array, const char* str_cmp);
 int compare_middle_string(char* node, char* block, char* tmp_array, const char* str_cmp);
@@ -245,6 +245,7 @@ int B_tree_search(char* node, char* array_store, const char* str) {
     char* tmp = node; int store;
     size_t offset = skip_initial_parameters(&tmp);
 
+    size_t node_size = get_node_use(node);
     // int key_index = 1;
    
     /* If stop at first block */
@@ -268,7 +269,7 @@ int B_tree_search(char* node, char* array_store, const char* str) {
     /* Do not stop at first block */
     } else {
         /* WIth measurement */
-        while((store = compare_second_string_move(&tmp, node, &offset, array_store, str)) < 0) {
+        while((store = compare_second_string_move(&tmp, node_size, &offset, array_store, str)) < 0) {
             keys_processed++;
         }
         keys_processed++;
@@ -300,6 +301,8 @@ int B_tree_search(char* node, char* array_store, const char* str) {
 int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Original nodes */
+    size_t x_node_use = get_node_use(node_x);
+    size_t y_node_use = get_node_use(node_y);
 
 
     /* Create new child node z (sibling of y). Note that node_x is the parent node. node_y and node_z are the child nodes */
@@ -329,7 +332,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
 
     /* Refer to Cormen: Move W onwards and leave space for ptr, S, ptr */
-    memmove(tmp_x + insertion_offset, tmp_x + sizeof(char*), get_node_use(node_x) + 1 - key_offset);
+    memmove(tmp_x + insertion_offset, tmp_x + sizeof(char*), x_node_use + 1 - key_offset);
 
     // Store key from y to x  
     tmp_x += sizeof(char*); *(int*)tmp_x = tmp_length; // printf("length is %d, should be %d\n", *(int*)(tmp_x), tmp_length);
@@ -342,7 +345,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Storing child_z ptr into node_x */
     *(char**)tmp_x = child_z;
-    update_node_use(node_x, get_node_use(node_x) + key_size + sizeof(char*));
+    update_node_use(node_x, x_node_use + key_size + sizeof(char*));
 
     
     /* Delete middle key in y and move RHS keys to child_z */
@@ -354,10 +357,10 @@ int B_tree_split_child(char* node_x, char* node_y) {
     mid_ptr += key_size; y_mid_offset += key_size;
 
     /* Move following blocks of node_y to child_z including the null-byte */
-    memmove(child_z + get_init_param_offset(), mid_ptr, get_node_use(node_y) + 1 - y_mid_offset);
+    memmove(child_z + get_init_param_offset(), mid_ptr, y_node_use  + 1 - y_mid_offset);
 //    memset(mid_ptr, 0xFF, get_node_use(node_y) + 1 - y_mid_offset);
 
-    update_node_use(child_z, get_node_use(child_z) + (get_node_use(node_y) - y_mid_offset));
+    update_node_use(child_z, INITIAL_NODE_SIZE_USE + (y_node_use - y_mid_offset));
     update_node_use(node_y, y_mid_offset - key_size);
 
 
@@ -387,7 +390,7 @@ int B_tree_insert(char** root_ptr, const char* str) {
 
         /* S is the new root. First child ptr is node */
         *(char**)tmp = prev_root;
-        update_node_use(s, get_node_use(s) + sizeof(char*));
+        update_node_use(s, INITIAL_NODE_SIZE_USE + sizeof(char*));
         *(tmp + sizeof(char*)) = '\0'; //Set null-byte at end of new node 
         
         /* Just checking */
@@ -415,7 +418,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     // int index = get_index();
     
 
-
+    size_t node_use = get_node_use(node);
 
     // Create dummy variable and keep track of tmp pointer 
     char *tmp = node; size_t offset = 0;
@@ -434,26 +437,31 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     /* Find the correct position of where to insert key.*/
 
     /* Compare the first string. Update counter if str match */
-    if ((store = compare_current_string(node, tmp_array, str)) >= 0) {
-
+    if (node_use == INITIAL_NODE_SIZE_USE) {
         flag = 1;
-        if (store == 0) {
-            /* Exit function after inserting string / updating */
-            increment_block_counter(tmp);
-            return POSITIVE;
-        }
-    }
+    } else {
 
-    /* Compare every second string, update counter if match. (pointer updated each time) */
-    if (!flag) {
+        if (((store = compare_current_string(node, tmp_array, str)) >= 0)) {
 
-        /* Comparing every second string */
-        while((store = compare_second_string_move(&tmp, node, &offset, tmp_array, str)) <= 0) {
-
-            /* Repeating String */
+            flag = 1;
             if (store == 0) {
+                /* Exit function after inserting string / updating */
                 increment_block_counter(tmp);
                 return POSITIVE;
+            }
+        }
+
+        /* Compare every second string, update counter if match. (pointer updated each time) */
+        if (!flag) {
+
+            /* Comparing every second string */
+            while((store = compare_second_string_move(&tmp, node_use, &offset, tmp_array, str)) <= 0) {
+
+                /* Repeating String */
+                if (store == 0) {
+                    increment_block_counter(tmp);
+                    return POSITIVE;
+                }
             }
         }
     }
@@ -463,13 +471,13 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     if (node_is_leaf(node)) {
 
         /* For this case, we need to add a child pointer at the start and end */
-        if (get_node_use(node) == INIT_PARAM_OFFSET) {
+        if (node_use == INIT_PARAM_OFFSET) {
             
             /* Shift everything to the right to fit the new block */
             block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*);
 
 
-            memmove(tmp + block_size, tmp, get_node_use(node) + 1 - offset);
+            memmove(tmp + block_size, tmp, node_use + 1 - offset);
             *(char**)(tmp) = NULL; 
 
             tmp += sizeof(char*);
@@ -485,7 +493,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
             block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
 
 
-            memmove(tmp + block_size, tmp, get_node_use(node) + 1 - offset);
+            memmove(tmp + block_size, tmp, node_use + 1 - offset);
             *(char**)(tmp) = NULL; // castes tmp to double pointer
 
             tmp += sizeof(char*);
@@ -499,7 +507,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
         unique_key_counter++;
         
         /* Update currently used space in the node */
-        update_node_use(node, get_node_use(node) + block_size);
+        update_node_use(node, node_use + block_size);
 
         return POSITIVE;
 
@@ -562,7 +570,7 @@ size_t move_mid_node(char** node_ptr) {
     prev_key_size = get_single_key_size(*node_ptr + prev_start_offset);
     
     /* The node is not sufficiently full to perform a node-split */
-    if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size() >= get_node_use(*node_ptr)) {
+    if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size() >= node_used) {
         printf("Node size parameter is too small, unable to do child split...\n");
         assert(0);
     }
@@ -924,7 +932,7 @@ int compare_current_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_a
 
 
 // Current problem when a new string is stored at the end of an array byte
-int compare_second_string_move(char** node_ptr, char* node, size_t* offset_ptr, char* tmp_array, 
+int compare_second_string_move(char** node_ptr, size_t node_size, size_t* offset_ptr, char* tmp_array, 
                           const char* str_cmp) {
 
     if (!node_ptr || !tmp_array) {
@@ -933,7 +941,7 @@ int compare_second_string_move(char** node_ptr, char* node, size_t* offset_ptr, 
     }
 
     /* This condition is required for the start, where only a single pointer*/
-    if (*offset_ptr + sizeof(char*) >= get_node_use(node)) {
+    if (*offset_ptr + sizeof(char*) >= node_size) {
         printf("Currently at the last block (compare_second_string_move)");
         return POSITIVE;
     }
@@ -948,7 +956,7 @@ int compare_second_string_move(char** node_ptr, char* node, size_t* offset_ptr, 
 
     /* Currently at the second block. Check if this block has a key. Already at the last block
      * we don't modify this */
-    if (*offset_ptr + sizeof(char*) >= get_node_use(node)) {
+    if (*offset_ptr + sizeof(char*) >= node_size) {
         return POSITIVE;
     }
 
@@ -978,14 +986,6 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
         return POSITIVE;
     }
     
-    // THis shouldn't even work...
-    /* If start of current string is nullbyte, should only happen in the start. When node has no keys */
-    if (get_node_use(node) == INITIAL_NODE_SIZE_USE) {
-        return POSITIVE;
-    }
-
-
-
     /* Get the string from current block and store in temporary array */
     int tmp_length = get_str_length(node + INIT_PARAM_OFFSET);
 
