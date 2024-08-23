@@ -27,9 +27,10 @@
 
 /* Parameter choice */
 // #define T_DEGREE 10
-#define NODE_SIZE 300
-#define WORDS_NUM 10000000 // Parameter to control how many words to get from text file 
+#define NODE_SIZE 350
+#define WORDS_NUM 100000000 // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
+//#define FILENAME "wikipedia_with_cap.txt"
 
 
 /* Function Prototypes(main) */
@@ -121,14 +122,14 @@ void print_current_block_address(char* node);
 static size_t memory_usage = 0;
 static int unique_key_counter = 0;
 static int non_unique_key_counter = 0;
-static int keys_processed = 0;
+static size_t keys_processed = 0;
 static int number_of_nodes = 0;
 
 int main(int argc, char** argv) {
     
     FILE* file;
-    char word[100]; int counter = 1;
-    int str_length;
+    char word[100]; size_t counter = 1;
+    int str_length; int flag = 0;
     
     // char word_list[WORDS_NUM][MAX_STRING_BYTES];
     /* Allocate memory for word list */
@@ -173,8 +174,14 @@ int main(int argc, char** argv) {
 
         /* Store the specified number of strings only */
         if (counter > WORDS_NUM) {
+            flag = 1; 
+            printf("Enough word data: %d, stop loading words from text file.\n", WORDS_NUM);
             break;
         }
+    }
+
+    if (!flag) {
+        printf("Not enough words in txt file, only loaded %zu words\n", counter - 1);
     }
 
 
@@ -217,7 +224,7 @@ int main(int argc, char** argv) {
     printf("Inserting %d non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", WORDS_NUM, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
     printf("There are %d unique keys in the B-tree\n", unique_key_counter);
-    printf("%d keys were processed\n", keys_processed);
+    printf("%zu keys were processed\n", keys_processed);
     printf("There are %d nodes in the B-tree\n", number_of_nodes);
 
     /* Free the whole tree node */

@@ -19,13 +19,13 @@
 #define RIGHT_PTR_OFFSET (sizeof(char*))
 #define INITIAL_COUNT 1
 #define ALLOCATE_OVERHEAD 8
-#define FILENAME "wordstream.txt"
-// #define FILENAME "wikipedia_with_cap.txt"
+//#define FILENAME "wordstream.txt"
+#define FILENAME "wikipedia_with_cap.txt"
 
 #define PRINT_TOGGLE 0
 
 /* Data Volume */
-#define WORDS_NUM 100000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM 100000000 // Parameter to control how many words to get from text file 
 
 
 /* PROBLEMS:
