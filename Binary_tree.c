@@ -19,8 +19,9 @@
 #define RIGHT_PTR_OFFSET (sizeof(char*))
 #define INITIAL_COUNT 1
 #define ALLOCATE_OVERHEAD 8
-//#define FILENAME "wordstream.txt"
-#define FILENAME "wikipedia_with_cap.txt"
+
+#define FILENAME "wordstream.txt"
+//#define FILENAME "wikipedia_with_cap.txt"
 
 #define PRINT_TOGGLE 0
 
@@ -59,14 +60,14 @@ void free_array_list(char** word_list);
 static int non_unique_key_counter = 0;
 static int unique_key_counter = 0;
 static size_t memory_usage = 0;
-static int keys_processed = 0;
+static size_t keys_processed = 0;
 static int number_of_nodes = 0;
 
 int main(int argc, char** argv) {
 
 
     FILE* file;
-    char word[100]; int counter = 1, str_length;
+    char word[100]; size_t counter = 1; int str_length, flag = 0;
 
     /* Variables for measuring time */
     struct timespec prec_start, prec_end;
@@ -102,8 +103,14 @@ int main(int argc, char** argv) {
 
         /* Store the specified number of strings only */
         if (counter > WORDS_NUM) {
+            flag = 1; 
+            printf("Enough word data: %d, stop loading words from text file.\n", WORDS_NUM);
             break;
         }
+    }
+
+    if (!flag) {
+        printf("Not enough words in txt file, only loaded %zu words\n", counter - 1);
     }
 
     printf("Beginning binary tree word insertions\n");
@@ -142,10 +149,11 @@ int main(int argc, char** argv) {
 
 
     /* Printing all the measuring variable data */
-    printf("Inserting %d non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", WORDS_NUM, elapsed1, elapsed2);
+    printf("For Binary tree:\n");
+    printf("Inserting %zu non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", counter - 1, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
     printf("There are %d unique keys in the Binary tree\n", unique_key_counter);
-    printf("%d keys were processed\n", keys_processed);
+    printf("%zu keys were processed\n", keys_processed);
     printf("There are %d nodes in the Binary tree\n", number_of_nodes);
 
 

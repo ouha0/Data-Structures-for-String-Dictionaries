@@ -27,7 +27,7 @@
 
 /* Parameter choice */
 // #define T_DEGREE 10
-#define NODE_SIZE 350
+#define NODE_SIZE 512
 #define WORDS_NUM 100000000 // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 //#define FILENAME "wikipedia_with_cap.txt"
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
         /* Store the specified number of strings only */
         if (counter > WORDS_NUM) {
             flag = 1; 
-            printf("Enough word data: %d, stop loading words from text file.\n", WORDS_NUM);
+            printf("Enough word data: %zu words loaded, stop loading words from text file.\n", counter - 1);
             break;
         }
     }
@@ -219,9 +219,10 @@ int main(int argc, char** argv) {
 
 
     printf("\n\n\n\n\n");
-    printf("There are %d non-unique strings in the B-tree, there should be %d non-unique strings (inserted strings)\n",
-           non_unique_key_counter, WORDS_NUM);
-    printf("Inserting %d non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", WORDS_NUM, elapsed1, elapsed2);
+    printf("For B-tree with node size %d:\n", NODE_SIZE);
+    printf("There are %d non-unique strings in the B-tree, there should be %zu non-unique strings (inserted strings)\n",
+           non_unique_key_counter, counter - 1);
+    printf("Inserting %zu non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", counter - 1, elapsed1, elapsed2);
     printf("The total memory usage was %zu bytes\n", memory_usage);
     printf("There are %d unique keys in the B-tree\n", unique_key_counter);
     printf("%zu keys were processed\n", keys_processed);
