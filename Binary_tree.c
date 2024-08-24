@@ -20,13 +20,17 @@
 #define INITIAL_COUNT 1
 #define ALLOCATE_OVERHEAD 8
 
-#define FILENAME "wordstream.txt"
-//#define FILENAME "wikipedia_with_cap.txt"
+//#define FILENAME "wordstream.txt"
+#define FILENAME "wikipedia_with_cap.txt"
 
 #define PRINT_TOGGLE 0
 
+#define ONE_MILLION 1000000
+#define TEN_MILLION 10000000
+#define HUNDRED_MILLION 100000000
+
 /* Data Volume */
-#define WORDS_NUM 100000000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
 
 
 /* PROBLEMS:
@@ -142,10 +146,9 @@ int main(int argc, char** argv) {
 
 
     /* Printing all strings in order */
-    printf("Printing all Binary tree keys\n\n\n");
+    printf("Printing all Binary tree keys\n");
     binary_inorder(tree_root, word);
-    printf("\n\n\n\n");
-
+    printf("\n\n");
 
 
     /* Printing all the measuring variable data */

@@ -24,13 +24,18 @@
 #define ALLOCATE_OVERHEAD 8
 
 #define PRINT_TOGGLE 0
+#define ONE_MILLION 1000000
+#define TEN_MILLION 10000000
+#define HUNDRED_MILLION 100000000
+
+
 
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 512
-#define WORDS_NUM 100000000 // Parameter to control how many words to get from text file 
-#define FILENAME "wordstream.txt"
-//#define FILENAME "wikipedia_with_cap.txt"
+#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
+//#define FILENAME "wordstream.txt"
+#define FILENAME "wikipedia_with_cap.txt"
 
 
 /* Function Prototypes(main) */
@@ -114,9 +119,9 @@ void print_current_block_address(char* node);
  * Tree search, Create empty tree, Split child, Insert key, Insert key non-full, delete key */
 
 
-/* Problem: Currently, node does not satisfy lower bound "n >= t - 1" */
 
-
+/* Problems: Perhaps use global variables less and use local variables instead. This avoids cache-misses
+ * and speeds up the program. Also, finding an approximate mid pointer is enough I think */
 
 
 static size_t memory_usage = 0;
@@ -210,9 +215,8 @@ int main(int argc, char** argv) {
     elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
     
     /* Print all nodes */
-    printf("Printing all B-tree keys\n\n\n");
+    printf("Printing all B-tree keys\n");
     print_B_tree(tree_root, word);
-
 
     /* Print word list array */
     // print_word_array(word_list, counter);
@@ -529,10 +533,18 @@ int B_tree_insert_nonfull(char* node, const char* str) {
             /* Just a check */
             B_tree_split_child(node, child);
 
-            /* If str is larger than current key in parent, shift tmp by one block */
-            if (compare_middle_string(node, tmp, tmp_array, str) < 0) {
-                skip_single_block(&tmp);
+            /* If str is larger or equal than current key in parent, increment counter or shift tmp 
+             * by one block */
+            if ((store = compare_middle_string(node, tmp, tmp_array, str)) <= 0) {
 
+                /* If key moved to parent is same as string */
+                if (store == 0) {
+                    increment_block_counter(tmp);
+                    return POSITIVE;
+                }
+
+                /* Shift to the right */
+                skip_single_block(&tmp);
                 child = get_child_node(tmp);
             } 
             /* After Split */
