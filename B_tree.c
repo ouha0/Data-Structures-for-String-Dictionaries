@@ -34,8 +34,8 @@
 // #define T_DEGREE 10
 #define NODE_SIZE 512
 #define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
-//#define FILENAME "wordstream.txt"
-#define FILENAME "wikipedia_with_cap.txt"
+#define FILENAME "wordstream.txt"
+// #define FILENAME "wikipedia_with_cap.txt"
 
 
 /* Function Prototypes(main) */
@@ -650,6 +650,37 @@ size_t move_mid_node(char** node_ptr) {
 }
 
 
+/* Function that takes char** node_ptr as input, where *node_ptr points 
+ * to the start of the node. The function moves *node_ptr to the approximate middle key 
+ * of the node. */
+
+
+// Note that this function is incomplete right now. working on this...
+size_t approximate_mid(char** node_ptr) {
+    if (!node_ptr) {
+        printf("Node is emtpy...\n");
+        assert(0);
+    }
+
+    size_t node_used = get_node_use(*node_ptr);
+    char* tmp = *node_ptr;
+    
+    /* Variables to keep track of offset of closest key to mid point */
+    size_t min_offset, min_distance; // size_t tmp_min; // tmp_min not being used
+    size_t prev_distance, curr_distance;
+
+    /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
+    size_t prev_start_offset = 0; size_t prev_key_size, curr_key_size;
+    prev_start_offset += get_init_param_offset();
+    prev_start_offset += sizeof(char*);
+
+    /* Size of previous key to get the index */
+    prev_key_size = get_single_key_size(*node_ptr + prev_start_offset);
+
+
+
+    return min_offset;
+}
 
 
 
