@@ -18,7 +18,7 @@
 
 /* For convenience */
 #define INIT_PARAM_OFFSET 9 //Initial node maintainence parameter offset
-#define NODE_MID_SIZE (NODE_SIZE/ 2.0)
+#define NODE_MID_SIZE ((NODE_SIZE - INIT_PARAM_OFFSET)/ 2.0)
 #define STR_SMALLER -1
 #define POSITIVE 10 // This is just any integer, so it returns something 
 #define ALLOCATE_OVERHEAD 8
@@ -33,7 +33,7 @@
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 512
-#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
+#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
 
@@ -576,7 +576,6 @@ size_t move_mid_node(char** node_ptr) {
     /* Make a copy to modify (not saved) */
     char* tmp = *node_ptr;
 
-   
     /* Variables to keep track of offset of closest key to mid point */
     size_t min_offset, min_distance; // size_t tmp_min; // tmp_min not being used
     size_t prev_distance, curr_distance;
@@ -587,9 +586,9 @@ size_t move_mid_node(char** node_ptr) {
     prev_start_offset += sizeof(char*);
 
     /* Size of previous key to get the index */
-    prev_key_size = get_single_key_size(*node_ptr + prev_start_offset);
+    prev_key_size = get_single_key_size(tmp + prev_start_offset);
     
-    /* The node is not sufficiently full to perform a node-split */
+    /* The node is not sufficiently full to perform a node-split (Just an approximation) */
     if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size() >= node_used) {
         printf("Node size parameter is too small, unable to do child split...\n");
         assert(0);
@@ -610,19 +609,19 @@ size_t move_mid_node(char** node_ptr) {
         min_distance = curr_distance;
     }
 
+    curr_key_size = get_single_key_size(tmp);
 
     /* Go through blocks of the node and find the key_offset that is closest to NODE_MID_SIZE */
     while(prev_distance > curr_distance) {
 
 
         /* Get key size of curr_start_offset and update prev_start_offset */
-        prev_key_size = get_single_key_size(tmp);
+        prev_key_size = curr_key_size;
     
         prev_start_offset = curr_start_offset;
 
         /* Update curr_start offset to next key */
         curr_start_offset += skip_key_to_key(&tmp);
-
         curr_key_size = get_single_key_size(tmp);
 
         
@@ -631,7 +630,7 @@ size_t move_mid_node(char** node_ptr) {
         curr_distance = fabs(NODE_MID_SIZE - curr_start_offset);
 
         /* Update the min_offset and min_distance accordingly for next while loop */
-        if ((prev_distance < min_distance) & (prev_start_offset + prev_key_size + sizeof(char*) < node_used) ) {
+        if ((prev_distance < min_distance)) {
             min_distance = prev_distance;
             min_offset = prev_start_offset;
         }
@@ -640,12 +639,10 @@ size_t move_mid_node(char** node_ptr) {
             min_distance = curr_distance;
             min_offset = curr_start_offset;
         }     
-
     } 
 
     /* Update *node_ptr to start of the key that is closest to the NODE_MID_SIZE */
     *node_ptr += min_offset;
-
     return min_offset;
 }
 
@@ -870,6 +867,10 @@ size_t get_single_key_size(char *node) {
     }
 
     int tmp_str_length = *(int*)node;
+
+    /* Just for checking */
+    assert(tmp_str_length >= 0);
+
     return sizeof(int) + tmp_str_length + 1 + sizeof(int);
 }
 
