@@ -32,7 +32,7 @@
 
 /* Parameter choice */
 // #define T_DEGREE 10
-#define NODE_SIZE 512
+#define NODE_SIZE 300
 #define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
@@ -599,31 +599,45 @@ size_t move_mid_node(char** node_ptr) {
     size_t curr_start_offset = skip_block_from_start(&tmp, 1);
     curr_start_offset += skip_child_ptr(&tmp);
     
+    prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1));
+    curr_distance = fabs(NODE_MID_SIZE - curr_start_offset);
+
+    curr_key_size = get_single_key_size(tmp);
+
     /* Initialize minimum key offset */
-    if ((prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1))) 
-    < (curr_distance = fabs(NODE_MID_SIZE - curr_start_offset))) {
+    if (prev_distance < curr_distance) {
+        printf("Node size is most likely too small...\n");
+        assert(0);
+
         min_distance = prev_distance;
         min_offset = prev_start_offset;
     } else {
+        
+        /* If second key is the last key, then node split probably shouldn't happen... */
+        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_used) {
+            printf("Something seems off... Node size probably too small... Doing a node split on 2 keys...\n");
+            assert(0);
+        }
+
         min_offset = curr_start_offset; 
         min_distance = curr_distance;
     }
 
-    curr_key_size = get_single_key_size(tmp);
-
     /* Go through blocks of the node and find the key_offset that is closest to NODE_MID_SIZE */
     while(prev_distance > curr_distance) {
 
-
         /* Get key size of curr_start_offset and update prev_start_offset */
         prev_key_size = curr_key_size;
-    
         prev_start_offset = curr_start_offset;
 
         /* Update curr_start offset to next key */
         curr_start_offset += skip_key_to_key(&tmp);
         curr_key_size = get_single_key_size(tmp);
 
+        /* Stop if current key is the last key. Can't node split when nothing on the 
+         * right side of the middle */
+        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_used)
+            break;
         
         /* Cacluate the new distances between the keys and the node mid point */
         prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1));
@@ -635,7 +649,7 @@ size_t move_mid_node(char** node_ptr) {
             min_offset = prev_start_offset;
         }
 
-        if ((curr_distance < min_distance) & (curr_start_offset + curr_key_size + sizeof(char*) < node_used)) {
+        if ((curr_distance < min_distance)) {
             min_distance = curr_distance;
             min_offset = curr_start_offset;
         }     
