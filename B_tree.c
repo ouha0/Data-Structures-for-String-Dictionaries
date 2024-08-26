@@ -25,6 +25,7 @@
 #define ALLOCATE_OVERHEAD 8
 
 #define PRINT_TOGGLE 0
+#define CHECK_TOGGLE 1
 #define ONE_MILLION 1000000
 #define TEN_MILLION 10000000
 #define HUNDRED_MILLION 100000000
@@ -35,8 +36,8 @@
 // #define T_DEGREE 10
 #define NODE_SIZE 350
 #define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
-// #define FILENAME "wordstream.txt"
-#define FILENAME "wikipedia_with_cap.txt"
+#define FILENAME "wordstream.txt"
+// #define FILENAME "wikipedia_with_cap"
 
 
 /* Function Prototypes(main) */
@@ -50,7 +51,7 @@ int B_tree_search(char*, char*, const char*);
 void free_B_tree(char* root);
 void print_B_tree(char* root, char* word);
 void free_array_list(char** word_list);
-
+void B_tree_check(char* root);
 
 /* More important Function Prototypes */
 size_t skip_single_block(char**);
@@ -91,6 +92,8 @@ void print_node_lexigraphic_check(char* node);
 void print_node_strings(char* node, char* word);
 void print_node_value_address(char* node);
 void print_key_string(char* key);
+
+void print_node_use_ratio(char* node);
 // void print_word_array(char (*words)[MAX_STRING_BYTES], int size);
 
 /* Function Prototypes for text processing */
@@ -131,6 +134,7 @@ static int unique_key_counter = 0;
 static int non_unique_key_counter = 0;
 static size_t keys_processed = 0;
 static int number_of_nodes = 0;
+static double avg_node_use_ratio = 0;
 
 int main(int argc, char** argv) {
     
@@ -222,6 +226,9 @@ int main(int argc, char** argv) {
     /* Print word list array */
     // print_word_array(word_list, counter);
 
+    if (CHECK_TOGGLE) 
+        B_tree_check(tree_root);
+
 
     printf("\n\n\n");
     printf("For B-tree with node size %d:\n", NODE_SIZE);
@@ -232,10 +239,14 @@ int main(int argc, char** argv) {
     printf("There are %d unique keys in the B-tree\n", unique_key_counter);
     printf("%zu keys were processed\n", keys_processed);
     printf("There are %d nodes in the B-tree\n", number_of_nodes);
+    
+    if (CHECK_TOGGLE) {
+        printf("The average node use ratio is %lf\n", avg_node_use_ratio / number_of_nodes);
+    }
+
 
     /* Free the whole tree node */
     free_B_tree(tree_root);
-
     /* Free the array list */
     free_array_list(word_list);
 
@@ -259,13 +270,7 @@ int B_tree_search(char* node, char* array_store, const char* str) {
     size_t node_size = get_node_use(node);
     // int key_index = 1;
    
-    /* If stop at first block */
-    keys_processed++;
-
     if ((store = compare_current_string(node, array_store, str)) >= 0) {
-
-        /* Measurement */
-        keys_processed++;
 
         if (store == 0) {
             // printf("Found the word at index %d. The word to find is %s. The word stored is %s\n", key_index, str, array_store);
@@ -281,9 +286,7 @@ int B_tree_search(char* node, char* array_store, const char* str) {
     } else {
         /* WIth measurement */
         while((store = compare_second_string_move(&tmp, node_size, &offset, array_store, str)) < 0) {
-            keys_processed++;
         }
-        keys_processed++;
         
         if (store == 0) {
             // printf("Found the word at index %d. The word to find is %s. The word stored is %s\n", key_index, str, array_store);
@@ -323,8 +326,8 @@ int B_tree_split_child(char* node_x, char* node_y) {
     /* Find midpoint of node_y to copy to node_z */
     char* mid_ptr = node_y;
 
-    size_t y_mid_offset = approximate_mid(&mid_ptr);
-    // size_t y_mid_offset = move_mid_node(&mid_ptr); //middle key of y_node
+    // size_t y_mid_offset = approximate_mid(&mid_ptr);
+    size_t y_mid_offset = move_mid_node(&mid_ptr); //middle key of y_node
 
     /* This is the middle key of the node_y */
     int tmp_length = *(int*)mid_ptr; // y_child middle key length
@@ -357,13 +360,8 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Storing child_z ptr into node_x */
     *(char**)tmp_x = child_z;
-    update_node_use(node_x, x_node_use + key_size + sizeof(char*));
-
     
     /* Delete middle key in y and move RHS keys to child_z */
-    /* Clear memory of middle key and set null-byte */
-//    memset(mid_ptr, 0xFF, key_size); 
-
     *mid_ptr = '\0'; // not sure if needed 
 
     mid_ptr += key_size; y_mid_offset += key_size;
@@ -372,6 +370,7 @@ int B_tree_split_child(char* node_x, char* node_y) {
     memmove(child_z + get_init_param_offset(), mid_ptr, y_node_use  + 1 - y_mid_offset);
 //    memset(mid_ptr, 0xFF, get_node_use(node_y) + 1 - y_mid_offset);
 
+    update_node_use(node_x, x_node_use + key_size + sizeof(char*));
     update_node_use(child_z, INITIAL_NODE_SIZE_USE + (y_node_use - y_mid_offset));
     update_node_use(node_y, y_mid_offset - key_size);
 
@@ -391,7 +390,6 @@ int B_tree_insert(char** root_ptr, const char* str) {
     /* Node will be full if we assume a MAX STRING BYTES */
     if (prev_root_node_use + 1 + get_max_block_size() > NODE_SIZE) {
         
-        
         char* prev_root = *root_ptr; 
 
         /* allocate s as the new root */
@@ -400,12 +398,10 @@ int B_tree_insert(char** root_ptr, const char* str) {
         char* tmp = s;
         skip_initial_parameters(&tmp);
 
-
         /* S is the new root. First child ptr is node */
         *(char**)tmp = prev_root;
         
-        size_t s_node_size = INITIAL_NODE_SIZE_USE + sizeof(char*);
-        update_node_use(s, s_node_size);
+        update_node_use(s, INITIAL_NODE_SIZE_USE + sizeof(char*));
 
         *(tmp + sizeof(char*)) = '\0'; //Set null-byte at end of new node 
         
@@ -438,7 +434,6 @@ int B_tree_insert_nonfull(char* node, const char* str, size_t node_use) {
     char *tmp = node; size_t offset = 0;
     offset += skip_initial_parameters(&tmp); //skip initial parameters for tmp 
     
-
     int str_length = strlen(str);
 
     int flag = 0; int store; 
@@ -490,7 +485,6 @@ int B_tree_insert_nonfull(char* node, const char* str, size_t node_use) {
             /* Shift everything to the right to fit the new block */
             block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*);
 
-
             memmove(tmp + block_size, tmp, node_use + 1 - offset);
             *(char**)(tmp) = NULL; 
 
@@ -506,7 +500,6 @@ int B_tree_insert_nonfull(char* node, const char* str, size_t node_use) {
             /* Shift everything to the right to fit the new block */
             block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
 
-
             memmove(tmp + block_size, tmp, node_use + 1 - offset);
             *(char**)(tmp) = NULL; // castes tmp to double pointer
 
@@ -518,8 +511,8 @@ int B_tree_insert_nonfull(char* node, const char* str, size_t node_use) {
             *(int*)tmp = INITIAL_COUNT; 
             // tmp += sizeof(int); // This is not needed I think
         }
+        /* New key inserted */
         unique_key_counter++;
-        
         /* Update currently used space in the node */
         update_node_use(node, node_use + block_size);
 
@@ -613,6 +606,7 @@ size_t move_mid_node(char** node_ptr) {
 
         min_distance = prev_distance;
         min_offset = prev_start_offset;
+
     } else {
         
         /* If second key is the last key, then node split probably shouldn't happen... */
@@ -639,7 +633,10 @@ size_t move_mid_node(char** node_ptr) {
         /* Stop if current key is the last key. Can't node split when nothing on the 
          * right side of the middle */
         if (curr_start_offset + curr_key_size + sizeof(char*) >= node_used)
+        {
+            // printf("For large enough node sizes, this shouldn't run...\n");
             break;
+        }
         
         /* Cacluate the new distances between the keys and the node mid point */
         prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1));
@@ -807,6 +804,8 @@ int get_str_length(char* node) {
 
     /* Skip initial parameters, the child pointer and returns the length of the string */
     int tmp_length = *(int*)(node + sizeof(char*));
+
+    /* Getting the size of the string of a block */
     keys_processed++;
 
     return tmp_length;
@@ -881,6 +880,7 @@ size_t skip_single_key(char** node_ptr) {
     int tmp_str_length = *(int*)(*node_ptr); *node_ptr += sizeof(int); 
     *node_ptr += tmp_str_length + 1 + sizeof(int);
 
+    /* Required to work out string length and skip: keys_processed++ */
     keys_processed++;
     return sizeof(int) + tmp_str_length + 1 + sizeof(int);
 }
@@ -910,7 +910,8 @@ size_t move_ptr_to_ptr(char** node_ptr, char* node_to) {
     while(tmp != node_to) {
         /* If at last child ptr of the node, quit the function and return the offset */
         if (tmp_size + sizeof(char*) > node_used) { 
-
+            printf("Node address not find in parent node...\n");
+            assert(0);
             return tmp_size; 
         }
 
@@ -932,7 +933,7 @@ size_t get_single_key_size(char *node) {
     int tmp_str_length = *(int*)node;
 
     /* Just for checking */
-    assert(tmp_str_length >= 0);
+    // assert(tmp_str_length >= 0);
 
     return sizeof(int) + tmp_str_length + 1 + sizeof(int);
 }
@@ -1047,7 +1048,7 @@ int compare_current_string_move(char** node_ptr, size_t* offset_ptr, char* tmp_a
 
 
 // Current problem when a new string is stored at the end of an array byte
-int compare_second_string_move(char** node_ptr, size_t node_size, size_t* offset_ptr, char* tmp_array, 
+inline int compare_second_string_move(char** node_ptr, size_t node_size, size_t* offset_ptr, char* tmp_array, 
                           const char* str_cmp) {
 
     if (!node_ptr || !tmp_array) {
@@ -1080,6 +1081,7 @@ int compare_second_string_move(char** node_ptr, size_t node_size, size_t* offset
     /* Copy the string in the second block to tmp array */
     memcpy(tmp_array, *node_ptr + sizeof(char*) + sizeof(int), tmp_length + 1);
 
+    keys_processed++;
     return strcmp(tmp_array, str_cmp);
 }
 
@@ -1088,7 +1090,7 @@ int compare_second_string_move(char** node_ptr, size_t node_size, size_t* offset
  * > 0 if string in block is larger than str_cmp. NOTE THAT THIS FUNCTION DOESN'T
  * AlTER THE PARENT NODE_PTR
  * */
-int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
+inline int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
     if (!node || !tmp_array) {
         fprintf(stderr, "Emtpy pointer input...\n");
         return POSITIVE;
@@ -1100,6 +1102,9 @@ int compare_current_string(char* node, char* tmp_array, const char* str_cmp) {
 
     // assert(tmp_length >= 0);
     memcpy(tmp_array, node + sizeof(char*) + sizeof(int), tmp_length + 1);
+
+    /* When string in block compared with string to find */
+    keys_processed++;
 
     /* return comparison results of two strings */
     return strcmp(tmp_array, str_cmp);
@@ -1113,11 +1118,12 @@ int compare_middle_string(char* node, char* block, char* tmp_array, const char* 
         return POSITIVE;
     }
     
-    // THis shouldn't even work...
+    /* This should be required */
     /* If start of current string is nullbyte, should only happen in the start. Node has no keys */
-    if (get_node_use(node) == INITIAL_NODE_SIZE_USE) {
-        return POSITIVE;
-    }
+    //if (get_node_use(node) == INITIAL_NODE_SIZE_USE) {
+    //    assert(0);
+    //    return POSITIVE;
+    //}
 
     /* Get the string from current block and store in temporary array */
     int tmp_length = get_str_length(block);
@@ -1277,8 +1283,7 @@ void print_node_lexigraphic_check(char* node) {
         return;
     }
 
-
-    printf("Find initial node size: %zu\n", node_space_used);
+    printf("Find node size: %zu\n", node_space_used);
 
     char* ptr = node;
     size_t offset = 0; offset += skip_initial_parameters(&ptr);
@@ -1457,6 +1462,43 @@ void free_B_tree(char* root) {
     free(root);
 }
 
+/* Sanity check: print nodes */
+void B_tree_check(char* root) {
+    
+    if (root == NULL)
+        return;
+
+    char* ptr = root; int tmp_length;
+    size_t offset = skip_initial_parameters(&ptr);
+    size_t node_space_used = get_node_use(root);
+
+    /* Free each child ptr node */
+    while(offset < node_space_used) {
+        /* Recurse child ptr */
+        B_tree_check(*(char**)(ptr));
+
+        ptr += sizeof(char*); offset += sizeof(char*);
+
+        if (offset >= node_space_used) {
+            break;
+        }
+        
+        /* Move pointer and offset to the next child ptr */
+        tmp_length = *(int*)(ptr); 
+        ptr += sizeof(int) + tmp_length + 1 + sizeof(int);
+        offset += sizeof(int) + tmp_length + 1 + sizeof(int);
+    }
+
+    if (PRINT_TOGGLE)
+        print_node_lexigraphic_check(root);
+    print_node_use_ratio(root);
+}
+
+
+
+
+
+
 /* Function that prints all B_tree nodes strings */
 void print_B_tree(char* root, char* word) {
     if (root == NULL) 
@@ -1513,6 +1555,16 @@ void free_array_list(char** word_list) {
     free(word_list);
 }
 
+/* Function that takes a node as input and outputs node filled ratio. */
+void print_node_use_ratio(char* node) {
+    double tmp = ((double)get_node_use(node)) / NODE_SIZE;
+    avg_node_use_ratio += tmp;
+
+    if (CHECK_TOGGLE)
+        printf("node use ratio is %lf\n", tmp);
+
+}
+
 
 /* Function that takes a pointer to an array of words, and size of the array. The function prints 
  * all words of the array of words */
@@ -1521,5 +1573,8 @@ void free_array_list(char** word_list) {
 //        printf("%s ", word_list[i]);
 //    }
 //}
+
+
+
 
 

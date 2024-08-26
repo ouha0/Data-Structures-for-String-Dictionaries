@@ -20,7 +20,7 @@
 #define INITIAL_COUNT 1
 #define ALLOCATE_OVERHEAD 8
 
-//#define FILENAME "wordstream.txt"
+// #define FILENAME "wordstream.txt"
 #define FILENAME "wikipedia_with_cap.txt"
 
 #define PRINT_TOGGLE 0
@@ -30,11 +30,9 @@
 #define HUNDRED_MILLION 100000000
 
 /* Data Volume */
-#define WORDS_NUM HUNDRED_MILLION  // Parameter to control how many words to get from text file 
+#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 
-
-/* PROBLEMS:
- * DON'T USE STRCASECMP I THINK */
+/* PROBLEMS */
 
 /* Function Prototypes */
 
@@ -302,7 +300,8 @@ int compare_key_string(char* n1, char* n2) {
     memcpy(buffer_1, n1, n1_length + 1);
     memcpy(buffer_2, n2, n2_length + 1);
 
-    keys_processed += 2;
+    /* When two keys are compared lexigraphically. Treat this as one key being processed */
+    keys_processed++;
 
     return strcmp(n1, n2);
 }
@@ -318,6 +317,7 @@ int compare_str_node(const char* str, char* n1) {
     memcpy(buffer_1, n1, n1_length + 1);
 
 
+    /* When a key is compared lexigraphically to determine where to insert the string */
     keys_processed++;
     return strcmp(str, n1);
 }
@@ -333,6 +333,7 @@ void increment_counter(char* node){
     /* Increase the counter by 1 */
     *(int*)node += 1;
 
+    /* When a key counter is incremented by 1 */
     keys_processed++;
 }
 
