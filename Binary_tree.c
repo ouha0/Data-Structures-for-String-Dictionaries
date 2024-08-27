@@ -30,7 +30,7 @@
 #define HUNDRED_MILLION 100000000
 
 /* Data Volume */
-#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
+#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
 
 /* PROBLEMS */
 

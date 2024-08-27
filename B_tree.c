@@ -34,10 +34,10 @@
 
 /* Parameter choice */
 // #define T_DEGREE 10
-#define NODE_SIZE 350
-#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
-#define FILENAME "wordstream.txt"
-// #define FILENAME "wikipedia_with_cap"
+#define NODE_SIZE 512
+#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
+// #define FILENAME "wordstream.txt"
+#define FILENAME "wikipedia_with_cap.txt"
 
 
 /* Function Prototypes(main) */
@@ -126,7 +126,8 @@ void print_current_block_address(char* node);
 
 
 /* Problems: Perhaps use global variables less and use local variables instead. This avoids cache-misses
- * and speeds up the program. Also, finding an approximate mid pointer is enough I think */
+ * and speeds up the program. Also, finding an approximate mid pointer is enough I think 
+ * Also there is no need for null bytes at the end of each node I think */
 
 
 static size_t memory_usage = 0;
@@ -241,7 +242,7 @@ int main(int argc, char** argv) {
     printf("There are %d nodes in the B-tree\n", number_of_nodes);
     
     if (CHECK_TOGGLE) {
-        printf("The average node use ratio is %lf\n", avg_node_use_ratio / number_of_nodes);
+        printf("The average node fill ratio is %lf\n", avg_node_use_ratio / number_of_nodes);
     }
 
 
@@ -1560,7 +1561,7 @@ void print_node_use_ratio(char* node) {
     double tmp = ((double)get_node_use(node)) / NODE_SIZE;
     avg_node_use_ratio += tmp;
 
-    if (CHECK_TOGGLE)
+    if (PRINT_TOGGLE)
         printf("node use ratio is %lf\n", tmp);
 
 }
