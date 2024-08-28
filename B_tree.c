@@ -948,6 +948,9 @@ size_t skip_initial_parameters(char** node_ptr) {
         return 0;
     }
     /* Offset by initial node housekeeping paramters */
+
+    // TO CHANGE: can make more concise 
+
     *node_ptr += get_init_param_offset();
     return get_init_param_offset();
 }

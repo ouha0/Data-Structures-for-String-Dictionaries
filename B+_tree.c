@@ -45,12 +45,14 @@ char* Bplus_create(void);
 
 
 /* Supplementary main function prototypes */
-size_t move_mid_node(char** node_ptr, bool isleaf);
+size_t leaf_move_mid_node(char** node_ptr);
+size_t nonleaf_move_mid_node(char** node_ptr);
 
 
 /* Foundational Supplementary functions */
 size_t leaf_skip_single_key(char** node_ptr);
 size_t non_leaf_skip_single_key(char** node_ptr);
+size_t nonleaf_skip_single_key(char** node_ptr);
 size_t skip_child_ptr(char** node_ptr);
 
 
@@ -63,12 +65,28 @@ size_t get_nonleaf_init_param_offset(void);
 char* get_next_leaf_node(char* node);
 int update_node_use(char* node, size_t new_size);
 size_t get_max_block_size(bool isleaf);
+size_t nonleaf_get_single_key_size(char* node);
+
+size_t leaf_skip_block_from_start(char** node_ptr, int index);
+size_t nonleaf_skip_block_from_start(char** node_ptr, int index);
+
+size_t leaf_get_single_key_size(char* node);
+size_t leaf_skip_initial_parameters(char** node_ptr);
+size_t nonleaf_skip_initial_parameters(char** node_ptr);
+
+size_t leaf_skip_single_block(char** node_ptr);
+size_t nonleaf_skip_single_block(char** node_ptr);
+
+size_t leaf_skip_key_to_key(char** node_ptr);
+size_t nonleaf_skip_key_to_key(char** node_ptr);
+
 
 
 /* Think about the node structure of B-trees and B+ trees. This will cause differences in the code... 
  * Also beware about the skipping functions you use. Internal nodes don't have the counter field */
 
 
+// Note that the node structure is different for leaf nodes and internal nodes 
 
 static size_t memory_usage = 0;
 static int unique_key_counter = 0;
@@ -268,7 +286,8 @@ char* initialize_node(bool is_leaf, size_t node_size) {
 }
 
 
-size_t move_mid_node(char** node_ptr, bool isleaf) {
+/* Note that this function is not done yet. Need to have move_mid node leaf and nonleaf */
+size_t leaf_move_mid_node(char** node_ptr) {
 
     size_t node_used = get_node_use(*node_ptr);
 
@@ -287,16 +306,8 @@ size_t move_mid_node(char** node_ptr, bool isleaf) {
 
     /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
     size_t prev_start_offset = 0; size_t prev_key_size, curr_key_size;
-
-    /* Initial parameter offset is different for leaf and internal nodes */
-    if (isleaf)
-        prev_start_offset += get_leaf_init_param_offset();
-    else 
-        prev_start_offset += get_nonleaf_init_param_offset();
-
-    /* Skip the first child pointer */
+    prev_start_offset += get_init_param_offset();
     prev_start_offset += sizeof(char*);
-
 
     /* Size of previous key to get the index */
     prev_key_size = get_single_key_size(tmp + prev_start_offset);
@@ -375,6 +386,12 @@ size_t move_mid_node(char** node_ptr, bool isleaf) {
     /* Update *node_ptr to start of the key that is closest to the NODE_MID_SIZE */
     *node_ptr += min_offset;
     return min_offset;
+}
+
+
+size_t nonleaf_move_mid_node(char** node_ptr) {
+
+    return 0;
 }
 
 
@@ -532,6 +549,211 @@ int get_str_length(char* node) {
 }
 
 
+/* Note: The function is used for internal nodes (without string counter)
+ * Function that takes a char* pointer to the start of some key as input. 
+ * The function outputs the size of the key */
+size_t nonleaf_get_single_key_size(char* node) {
+
+   // assert(!node_is_leaf(node));
+   // if (!node) {
+   //     printf("Null node\n");
+   //     assert(0);
+   // }
+
+    int tmp_length = *(int*)node;
+    
+    return sizeof(int) + tmp_length + 1;
+}
+
+/* Note: The function is used for leaf nodes (with string counter)
+ * Function that takes a char* pointer to the start of some key as input. 
+ * The function outputs the size of the key */
+size_t leaf_get_single_key_size(char* node) { 
+
+   // assert(node_is_leaf(node));
+   // if (!node) {
+   //    printf("Null node\n");
+   //    assert(0);
+   // }
+    
+    int tmp_length = *(int*)node;
+
+    return sizeof(int) + tmp_length + 1 + sizeof(int); // Leaf node has string counter in key 
+
+}
+
+/* Note: this function is used for leaf nodes
+ * Function that takes a double pointer to the start of a node and index as input. 
+ * The function offsets the ptr to node by the number of index blocks to skip
+ * and outputs the offset size */
+size_t leaf_skip_block_from_start(char** node_ptr, int index) {
+   
+   // if (!node_ptr) {
+   //     printf("Null input\n");
+   //     assert(0);
+   // }
+   // assert(node_is_leaf(*node_ptr));
+    size_t tmp_offset = leaf_skip_initial_parameters(node_ptr);
+
+    for (int i = 0; i < index; i++) {
+        tmp_offset += leaf_skip_single_block(node_ptr);
+    }
+
+    return tmp_offset;
+
+}
 
 
-// Note that the node structure is different for leaf nodes and internal nodes 
+/* Note: This function is used for leaf nodes 
+ * Function that takes a double pointer to the start of a node as input and offsets pointer to 
+ * node by initial housekeeping parameters. It also outputs the offset */
+size_t leaf_skip_initial_parameters(char** node_ptr) {
+    
+   // if (!node_ptr) {
+   //     printf("Null input\n");
+   //     assert(0);
+   // }
+   // assert(node_is_leaf(*node_ptr));
+    
+    size_t tmp_init = get_leaf_init_param_offset();
+    *node_ptr += tmp_init;
+
+    return tmp_init;
+}
+
+
+/* Note: This function is for leaf nodes 
+ * Function that takes a double pointer to the start of some block
+ * and offsets pointer to node by one block */
+size_t leaf_skip_single_block(char** node_ptr) {
+   // if (!node_ptr) {
+   //     printf("Null input\n");
+   //     assert(0);
+   // }
+
+
+    size_t tmp_offset = skip_child_ptr(node_ptr); // Skip child_ptr
+    tmp_offset += leaf_skip_single_key(node_ptr); // Skip the key
+
+    return tmp_offset;
+}
+
+
+
+
+
+/* Note: this function is used for non-leaf nodes
+ * Function that takes a double pointer to the start of a node and index as input. 
+ * The function offsets the ptr to node by the number of index blocks to skip
+ * and outputs the offset size */
+size_t nonleaf_skip_block_from_start(char** node_ptr, int index) { 
+
+
+   // if (!node_ptr) {
+   //     printf("Null input\n");
+   //     assert(0);
+   // }
+   // assert(node_is_leaf(*node_ptr));
+
+
+    size_t tmp_offset = nonleaf_skip_initial_parameters(node_ptr);
+
+    /* Skip index blocks */
+    for (int i = 0; i < index; i++) {
+        tmp_offset += nonleaf_skip_single_block(node_ptr);
+    }
+
+    return tmp_offset;
+}
+
+
+/* Note: This function is used for leaf nodes 
+ * Function that takes a double pointer to the start of a node as input and offsets pointer to 
+ * node by initial housekeeping parameters. It also outputs the offset */
+size_t nonleaf_skip_initial_parameters(char** node_ptr) {
+    
+   // if (!node_ptr) {
+   //     printf("Null input\n");
+   //     assert(0);
+   // }
+   // assert(node_is_leaf(*node_ptr));
+    
+    size_t tmp_init = get_nonleaf_init_param_offset();
+    *node_ptr += tmp_init;
+
+    return tmp_init;
+}
+
+
+
+/* Note: This function is for non-leaf nodes 
+ * Function that takes a double pointer to the start of some block
+ * and offsets pointer to node by one block */
+size_t nonleaf_skip_single_block(char** node_ptr) {
+   // if (!node_ptr) {
+   //     printf("Null input\n");
+   //     assert(0);
+   // }
+
+
+    size_t tmp_offset = skip_child_ptr(node_ptr); // Skip child_ptr
+    tmp_offset += nonleaf_skip_single_key(node_ptr); // Skip the key
+
+    return tmp_offset;
+}
+
+
+/* Note that this function is for leaf nodes, and double pointer points to start of a key 
+ * Function that takes a double pointer node as input and offsets pointer to node by a single key. */
+inline size_t nonleaf_skip_single_key(char** node_ptr) {
+    //if (!node_ptr) {
+    //    printf("Null input\n");
+    //    assert(0);
+    //}
+
+    /* Non-leaf node does not have counter */
+    int tmp_length = *(int*)(*node_ptr); *node_ptr += sizeof(int) + tmp_length + 1;
+    keys_processed++;
+
+    return sizeof(int) + tmp_length + 1;
+}
+
+
+
+/* Note: This function is for leaf nodes
+ * Function that takes a char** node_ptr as input and assumes *node_ptr 
+ * points to the start of the key. This moves the *node_ptr to the start 
+ * of the next key and outputs the offset. */
+size_t leaf_skip_key_to_key(char** node_ptr) {
+    /* Sanity Checks */
+   // if (!node_ptr) {
+   //     fprintf(stderr, "Null pointer...\n");
+   //     return 0;
+   // }
+
+    /* Move to next key and output offset. Skip key and then ptr */
+    size_t next_key_offset = leaf_skip_single_key(node_ptr);
+    next_key_offset += skip_child_ptr(node_ptr);
+
+    return next_key_offset;
+}
+
+
+
+/* Note: This function is for non-leaf nodes
+ * Function that takes a char** node_ptr as input and assumes *node_ptr 
+ * points to the start of the key. This moves the *node_ptr to the start 
+ * of the next key and outputs the offset. */
+size_t nonleaf_skip_key_to_key(char** node_ptr) {
+    /* Sanity Checks */
+   // if (!node_ptr) {
+   //     fprintf(stderr, "Null pointer...\n");
+   //     return 0;
+   // }
+
+    /* Move to next key and output offset. Skip key and then ptr */
+    size_t next_key_offset = nonleaf_skip_single_key(node_ptr);
+    next_key_offset += skip_child_ptr(node_ptr);
+
+    return next_key_offset;
+}
