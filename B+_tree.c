@@ -15,7 +15,8 @@
 #define DOUBLE_SIZE 2
 #define INITIAL_COUNT 1
 #define INITIAL_KEYS 0
-#define INITIAL_NODE_SIZE_USE INIT_PARAM_OFFSET
+#define INITIAL_LEAF_NODE_SIZE_USE sizeof(bool) + sizeof(size_t) + sizeof(char*)
+#define INITIAL_NONLEAF_NODE_SIZE_USE sizeof(bool) + sizeof(size_t)
 
 /* For convenience */
 #define INIT_PARAM_OFFSET 9 //Initial node maintainence parameter offset
@@ -32,32 +33,40 @@
 #define HUNDRED_MILLION 100000000
 
 
-
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 512
-#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
-// #define FILENAME "wordstream.txt"
-#define FILENAME "wikipedia_with_cap.txt"
-
-
+#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
+#define FILENAME "wordstream.txt"
+// #define FILENAME "wikipedia_with_cap.txt"
 
 /* Main function prototypes */
 char* Bplus_create(void);
 
 
 /* Supplementary main function prototypes */
-size_t move_mid_node(char** node_ptr);
+size_t move_mid_node(char** node_ptr, bool isleaf);
+
+
+/* Foundational Supplementary functions */
+size_t leaf_skip_single_key(char** node_ptr);
+size_t non_leaf_skip_single_key(char** node_ptr);
+size_t skip_child_ptr(char** node_ptr);
+
 
 /* Supplementary quick function prototypes */
 char* initialize_node(bool is_leaf, size_t node_size);
-inline size_t get_node_use(char* node);
-inline bool node_is_leaf(char* node);
+size_t get_node_use(char* node);
+bool node_is_leaf(char* node);
+size_t get_leaf_init_param_offset(void);
+size_t get_nonleaf_init_param_offset(void);
+char* get_next_leaf_node(char* node);
+int update_node_use(char* node, size_t new_size);
+size_t get_max_block_size(bool isleaf);
 
 
-
-
-/* Think about the node structure of B-trees and B+ trees. This will cause differences in the code... */
+/* Think about the node structure of B-trees and B+ trees. This will cause differences in the code... 
+ * Also beware about the skipping functions you use. Internal nodes don't have the counter field */
 
 
 
@@ -145,19 +154,77 @@ char* Bplus_create(void) {
 
 /* Function that takes the parent node, child node and the location of the child node pointer in the parent node as input. 
  * The function performs the tree split operation. (Note that this is different B-tree split)  */
-char* Bplus_split(char* parent, char* child, char* child_location) {
+char* Bplus_split(char* parent, char* child, char* child_location, size_t child_location_offset) {
     size_t parent_node_use = get_node_use(parent);
     size_t child_node_use = get_node_use(child);
     
+    bool child_leaf = node_is_leaf(child);
 
     /* Create child right node */
-    char* child_right = initialize_node(node_is_leaf(child), NODE_SIZE);
-    
+    char* child_right = initialize_node(child_leaf, NODE_SIZE);
+    size_t child_right_node_use = get_node_use(child_right);
+
     /* Find the middle key of the child node (to copy to the child_right node) */
     char* mid_child_ptr = child;
-    size_t mid_child_offset = move_mid_node(&mid_child_ptr);
+    size_t mid_child_offset = move_mid_node(&mid_child_ptr, child_leaf);
 
 
+    /* Get information of middle key of child node */
+    int tmp_length = *(int*)mid_child_ptr; 
+    size_t key_size;
+    /* When child node is leaf, child key is copied to parent node */
+    if (child_leaf) {
+        key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
+
+    } else {  // When child node isn't a leaf, node split is same as B-tree 
+        key_size = sizeof(int) + tmp_length + 1;
+    }
+
+    size_t insertion_offset = key_size + sizeof(char*) + sizeof(char*); // insertion offset to insert middle block into parent node
+
+    /* Offset for parent node */ 
+    size_t key_offset = child_location_offset + sizeof(char*); // offset from start parent node to end of child_location pointer
+
+
+    /* Refer to Cormen: Move W onwards and leave space for ptr, S, ptr */
+    memmove(child_location + insertion_offset, child_location + sizeof(char*), parent_node_use + 1 - key_offset);
+    child_location += sizeof(char*); 
+
+    /* Copy middle key in child node to x. Note that parent node is never a leaf node, there is no counter field in the key */
+    *(int*)child_location = tmp_length; child_location += sizeof(int);
+    memcpy(child_location, mid_child_ptr + sizeof(int), tmp_length + 1); child_location += tmp_length + 1;
+    *(char**)child_location = child_right; // Store right child pointer of parent node 
+
+
+    /* Now we move half the child node keys to the new child node */
+    if (child_leaf) {
+
+        /* Add a null pointer */
+        *(char**)(child_right + get_leaf_init_param_offset()) = NULL; 
+
+        /* Copy keys from child node to child_right */
+        memmove(child_right + get_leaf_init_param_offset() + sizeof(char*), mid_child_ptr, child_node_use + 1 - mid_child_offset);
+
+        /* Save pointer to next leaf node in child node before child_right node is modified */
+        *(char**)(child + get_nonleaf_init_param_offset()) = child_right;
+        
+    } else { /* Whether child node is leaf determines whether node is pushed up or copied like a B-tree */
+        
+        mid_child_ptr += key_size; mid_child_offset += key_size;
+        memmove(child_right, mid_child_ptr, child_node_use + 1 - mid_child_offset);
+    }
+    
+    update_node_use(parent, parent_node_use + key_size + sizeof(char*));
+    
+    /* Update node sizes depending internal of leaf node */
+    if (child_leaf) {
+        update_node_use(child_right, child_right_node_use + (child_node_use - mid_child_offset) + sizeof(char*));
+        update_node_use(child, mid_child_offset);
+
+    } else {
+        update_node_use(child_right, child_right_node_use + (child_node_use - mid_child_offset));
+        update_node_use(child, mid_child_offset - key_size);
+    }
 
     return NULL;
 }
@@ -177,7 +244,12 @@ char* initialize_node(bool is_leaf, size_t node_size) {
 
     /* Initialize the housekeeping variables for the node */
     *(bool*)(tmp) = is_leaf; tmp += sizeof(bool); // Initialize leaf parameter 
-    *(size_t*)(tmp) = INITIAL_NODE_SIZE_USE; 
+
+    if (is_leaf)
+        *(size_t*)(tmp) = sizeof(bool) + sizeof(size_t) + sizeof(char*); 
+    else
+        *(size_t*)(tmp) = sizeof(bool) + sizeof(size_t); 
+
 
     /* Note: Need to leave space for linked list pointer to next node */
    // if (is_leaf) {
@@ -196,7 +268,7 @@ char* initialize_node(bool is_leaf, size_t node_size) {
 }
 
 
-size_t move_mid_node(char** node_ptr) {
+size_t move_mid_node(char** node_ptr, bool isleaf) {
 
     size_t node_used = get_node_use(*node_ptr);
 
@@ -215,8 +287,16 @@ size_t move_mid_node(char** node_ptr) {
 
     /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
     size_t prev_start_offset = 0; size_t prev_key_size, curr_key_size;
-    prev_start_offset += get_init_param_offset();
+
+    /* Initial parameter offset is different for leaf and internal nodes */
+    if (isleaf)
+        prev_start_offset += get_leaf_init_param_offset();
+    else 
+        prev_start_offset += get_nonleaf_init_param_offset();
+
+    /* Skip the first child pointer */
     prev_start_offset += sizeof(char*);
+
 
     /* Size of previous key to get the index */
     prev_key_size = get_single_key_size(tmp + prev_start_offset);
@@ -330,6 +410,128 @@ size_t get_max_block_size(bool isleaf) {
     else 
         return (sizeof(int) + MAX_STRING_BYTES + 1 + sizeof(char*));
 }
+
+/* Function that takes a leaf node as input. The function outputs the address of the consecutive leaf node */
+char* get_next_leaf_node(char* node) {
+    /* A node must be a leaf to have a pointer to the next consecutive node */
+    assert(node_is_leaf(node));
+
+    /* Return the address of the next node */
+    return *(char**)(node + get_leaf_init_param_offset());
+}
+
+
+/* Function that takes a node and size_t node_size as input. 
+ * The function updates the current node use to new_size */
+int update_node_use(char* node, size_t new_size) {
+    if (!node) {
+        fprintf(stderr, "Null pointer...\n");
+        return 0;
+    }
+
+    node += sizeof(bool);
+    *(size_t*)node = new_size;
+
+    return 1;    
+}
+
+/* These functions behave differently for internal and leaf nodes:
+ * skip_block_from_start, get_single_key_size, skip_key_to_key, get_single_key_size
+ *
+ *
+ *
+ *
+ * */
+
+
+/* Function that takes a char* LEAF node pointer. The function assumes the node points
+ * to the start of the block. The function increments the counter of part if the key 
+ * by 1 (+= 1) */
+int increment_block_counter(char* node) {
+    if (!node || !node_is_leaf(node)) {
+        printf("Null node\n");
+        assert(0);
+    }
+
+    /* Increment string counter by 1, and add to keys processed */
+    node += sizeof(char*);
+    int tmp_length = *(int*)node; node += sizeof(int) + tmp_length + 1;
+    *(int*)(node) += 1;
+
+    keys_processed++;
+    return 1;
+}
+
+/* Note that this function is for non-leaf nodes, and double pointer points to start of a key 
+ * Function that takes a double pointer node as input and offsets pointer to node by a single key. */
+inline size_t non_leaf_skip_single_key(char** node_ptr) {
+    if (!node_ptr) {
+        printf("Null input\n");
+        assert(0);
+    }
+
+    /* Non-leaf node does not have counter */
+    int tmp_length = *(int*)(*node_ptr); *node_ptr += sizeof(int) + tmp_length + 1;
+    keys_processed++;
+
+    return sizeof(int) + tmp_length + 1;
+}
+
+/* Note that this function is for leaf nodes, and double pointer points to start of a key 
+ * Function that takes a double pointer node as input and offsets pointer to node by a single key. */
+inline size_t leaf_skip_single_key(char** node_ptr) {
+    if (!node_ptr) {
+        printf("Null input\n");
+        assert(0);
+    }
+
+    /* Non-leaf node does not have counter */
+    int tmp_length = *(int*)(*node_ptr); *node_ptr += sizeof(int) + tmp_length + 1 + sizeof(int);
+    keys_processed++;
+
+    return sizeof(int) + tmp_length + 1 + sizeof(int);
+}
+
+
+/* Function that takes a double pointer node as input and offsets pointer to node by ptr (child node) */
+inline size_t skip_child_ptr(char** node_ptr) {
+    /* Sanity Check */
+    //if (!node_ptr) {
+    //    fprintf(stderr, "Null pointer...\n");
+    //    return 0;
+    //}
+
+    /* offset by ptr */
+    *node_ptr += sizeof(char*);
+    return sizeof(char*);
+}
+
+/* Function that takes a char* node as input. char* node currently points to a block
+ * The function outputs the address of the child node in the block. */
+inline char* get_child_node(char* node) {
+    return *(char**)node;
+}
+
+
+/* Note: The funciton works for both internal and leaf nodes. The function assumes the input is pointer to the start of some block
+ * Funtion that takes a pointer to the start of a block in some node as input. The function assumes the pointer
+ * currently points to the start of a block and does not modify the pointer. The 
+ * function outputs the strlength of the key in the current block. */
+int get_str_length(char* node) {
+    //if (!node) {
+    //    fprintf(stderr, "Null pointer input");
+    //    return -1;
+    //}
+
+    /* Skip initial parameters, the child pointer and returns the length of the string */
+    int tmp_length = *(int*)(node + sizeof(char*));
+
+    /* Getting the size of the string of a block */
+    keys_processed++;
+    return tmp_length;
+}
+
+
 
 
 // Note that the node structure is different for leaf nodes and internal nodes 
