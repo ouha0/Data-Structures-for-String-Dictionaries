@@ -576,6 +576,9 @@ size_t move_mid_node(char** node_ptr) {
     size_t min_offset, min_distance; // size_t tmp_min; // tmp_min not being used
     size_t prev_distance, curr_distance;
 
+
+    // TO CHANGE: This part can be more concise. Refer to B+ tree 
+
     /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
     size_t prev_start_offset = 0; size_t prev_key_size, curr_key_size;
     prev_start_offset += get_init_param_offset();
@@ -590,6 +593,8 @@ size_t move_mid_node(char** node_ptr) {
         assert(0);
     }
     
+    
+    // TO CHANGE: This part can be more concise. Refer to B+ tree 
     
     /* Move tmp pointer to second key of the node */
     size_t curr_start_offset = skip_block_from_start(&tmp, 1);

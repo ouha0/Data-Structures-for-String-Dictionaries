@@ -42,11 +42,16 @@
 
 /* Main function prototypes */
 char* Bplus_create(void);
+char* Bplus_split(char* parent, char* child, char* child_location, size_t child_location_offset);
+int Bplus_insert(char**, const char*);
+int Bplus_insert_nonfull(char*, const char*, size_t);
+int Bplus_search(char*, char*, const char*);
+
 
 
 /* Supplementary main function prototypes */
-size_t leaf_move_mid_node(char** node_ptr);
-size_t nonleaf_move_mid_node(char** node_ptr);
+size_t leaf_move_mid_node(char** node_ptr, size_t node_use);
+size_t nonleaf_move_mid_node(char** node_ptr, size_t node_use);
 
 
 /* Foundational Supplementary functions */
@@ -60,8 +65,10 @@ size_t skip_child_ptr(char** node_ptr);
 char* initialize_node(bool is_leaf, size_t node_size);
 size_t get_node_use(char* node);
 bool node_is_leaf(char* node);
-size_t get_leaf_init_param_offset(void);
-size_t get_nonleaf_init_param_offset(void);
+
+size_t leaf_get_init_param_offset(void);
+size_t nonleaf_get_init_param_offset(void);
+
 char* get_next_leaf_node(char* node);
 int update_node_use(char* node, size_t new_size);
 size_t get_max_block_size(bool isleaf);
@@ -184,12 +191,17 @@ char* Bplus_split(char* parent, char* child, char* child_location, size_t child_
 
     /* Find the middle key of the child node (to copy to the child_right node) */
     char* mid_child_ptr = child;
-    size_t mid_child_offset = move_mid_node(&mid_child_ptr, child_leaf);
+    size_t mid_child_offset;
+    if (child_leaf)
+        leaf_move_mid_node(&mid_child_ptr, child_node_use);
+    else
+        nonleaf_move_mid_node(&mid_child_ptr, child_node_use);
 
 
     /* Get information of middle key of child node */
     int tmp_length = *(int*)mid_child_ptr; 
     size_t key_size;
+
     /* When child node is leaf, child key is copied to parent node */
     if (child_leaf) {
         key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
@@ -218,32 +230,32 @@ char* Bplus_split(char* parent, char* child, char* child_location, size_t child_
     if (child_leaf) {
 
         /* Add a null pointer */
-        *(char**)(child_right + get_leaf_init_param_offset()) = NULL; 
+        *(char**)(child_right + leaf_get_init_param_offset()) = NULL; 
 
         /* Copy keys from child node to child_right */
-        memmove(child_right + get_leaf_init_param_offset() + sizeof(char*), mid_child_ptr, child_node_use + 1 - mid_child_offset);
+        memmove(child_right + leaf_get_init_param_offset() + sizeof(char*), mid_child_ptr, child_node_use + 1 - mid_child_offset);
 
         /* Save pointer to next leaf node in child node before child_right node is modified */
-        *(char**)(child + get_nonleaf_init_param_offset()) = child_right;
+        *(char**)(child + nonleaf_get_init_param_offset()) = child_right;
+
+
+        /* Update node sizes*/
+        update_node_use(child_right, child_right_node_use + (child_node_use - mid_child_offset) + sizeof(char*));
+        update_node_use(child, mid_child_offset);
         
     } else { /* Whether child node is leaf determines whether node is pushed up or copied like a B-tree */
         
         mid_child_ptr += key_size; mid_child_offset += key_size;
         memmove(child_right, mid_child_ptr, child_node_use + 1 - mid_child_offset);
-    }
-    
-    update_node_use(parent, parent_node_use + key_size + sizeof(char*));
-    
-    /* Update node sizes depending internal of leaf node */
-    if (child_leaf) {
-        update_node_use(child_right, child_right_node_use + (child_node_use - mid_child_offset) + sizeof(char*));
-        update_node_use(child, mid_child_offset);
 
-    } else {
+        /* Update node sizes*/
         update_node_use(child_right, child_right_node_use + (child_node_use - mid_child_offset));
         update_node_use(child, mid_child_offset - key_size);
     }
-
+    
+    /* Update parent node use */
+    update_node_use(parent, parent_node_use + key_size + sizeof(char*));
+    
     return NULL;
 }
 
@@ -263,9 +275,12 @@ char* initialize_node(bool is_leaf, size_t node_size) {
     /* Initialize the housekeeping variables for the node */
     *(bool*)(tmp) = is_leaf; tmp += sizeof(bool); // Initialize leaf parameter 
 
-    if (is_leaf)
+    /* Initialize size of node and linked list pointer (if leaf node) */
+    if (is_leaf) {
         *(size_t*)(tmp) = sizeof(bool) + sizeof(size_t) + sizeof(char*); 
-    else
+        tmp += sizeof(size_t); *(char**)tmp = NULL;
+
+    } else
         *(size_t*)(tmp) = sizeof(bool) + sizeof(size_t); 
 
 
@@ -287,9 +302,9 @@ char* initialize_node(bool is_leaf, size_t node_size) {
 
 
 /* Note that this function is not done yet. Need to have move_mid node leaf and nonleaf */
-size_t leaf_move_mid_node(char** node_ptr) {
+size_t leaf_move_mid_node(char** node_ptr, size_t node_use) {
 
-    size_t node_used = get_node_use(*node_ptr);
+    // size_t node_used = get_node_use(*node_ptr);
 
     /* Sanity Check */
     if (!node_ptr) {
@@ -305,28 +320,30 @@ size_t leaf_move_mid_node(char** node_ptr) {
     size_t prev_distance, curr_distance;
 
     /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
-    size_t prev_start_offset = 0; size_t prev_key_size, curr_key_size;
-    prev_start_offset += get_init_param_offset();
-    prev_start_offset += sizeof(char*);
+    size_t prev_key_size, curr_key_size;
+
+    size_t prev_start_offset = leaf_skip_initial_parameters(&tmp);
+    prev_start_offset += skip_child_ptr(&tmp);
+
 
     /* Size of previous key to get the index */
-    prev_key_size = get_single_key_size(tmp + prev_start_offset);
+    prev_key_size = leaf_get_single_key_size(tmp);
     
     /* The node is not sufficiently full to perform a node-split (Just an approximation) */
-    if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size() >= node_used) {
+    if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size(true) >= node_use) {
         printf("Node size parameter is too small, unable to do child split...\n");
         assert(0);
     }
     
     
     /* Move tmp pointer to second key of the node */
-    size_t curr_start_offset = skip_block_from_start(&tmp, 1);
+    size_t curr_start_offset = leaf_skip_single_key(&tmp);
     curr_start_offset += skip_child_ptr(&tmp);
     
     prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1));
     curr_distance = fabs(NODE_MID_SIZE - curr_start_offset);
 
-    curr_key_size = get_single_key_size(tmp);
+    curr_key_size = leaf_get_single_key_size(tmp);
 
     /* Initialize minimum key offset */
     if (prev_distance < curr_distance) {
@@ -339,7 +356,7 @@ size_t leaf_move_mid_node(char** node_ptr) {
     } else {
         
         /* If second key is the last key, then node split probably shouldn't happen... */
-        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_used) {
+        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_use) {
             printf("Something seems off... Node size probably too small... Doing a node split on 2 keys...\n");
             assert(0);
         }
@@ -356,12 +373,12 @@ size_t leaf_move_mid_node(char** node_ptr) {
         prev_start_offset = curr_start_offset;
 
         /* Update curr_start offset to next key */
-        curr_start_offset += skip_key_to_key(&tmp);
-        curr_key_size = get_single_key_size(tmp);
+        curr_start_offset += leaf_skip_key_to_key(&tmp);
+        curr_key_size = leaf_get_single_key_size(tmp);
 
         /* Stop if current key is the last key. Can't node split when nothing on the 
          * right side of the middle */
-        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_used)
+        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_use)
         {
             // printf("For large enough node sizes, this shouldn't run...\n");
             break;
@@ -389,9 +406,107 @@ size_t leaf_move_mid_node(char** node_ptr) {
 }
 
 
-size_t nonleaf_move_mid_node(char** node_ptr) {
+size_t nonleaf_move_mid_node(char** node_ptr, size_t node_use) {
 
-    return 0;
+    // size_t node_used = get_node_use(*node_ptr);
+
+    /* Sanity Check */
+    if (!node_ptr) {
+        fprintf(stderr, "Null pointer...\n");
+        return 0;
+    }
+
+    /* Make a copy to modify (not saved) */
+    char* tmp = *node_ptr;
+
+    /* Variables to keep track of offset of closest key to mid point */
+    size_t min_offset, min_distance; // size_t tmp_min; // tmp_min not being used
+    size_t prev_distance, curr_distance;
+
+    /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
+    size_t prev_key_size, curr_key_size;
+
+    size_t prev_start_offset = nonleaf_skip_initial_parameters(&tmp);
+    prev_start_offset += skip_child_ptr(&tmp);
+
+
+    /* Size of previous key to get the index */
+    prev_key_size = nonleaf_get_single_key_size(tmp);
+    
+    /* The node is not sufficiently full to perform a node-split (Just an approximation) */
+    if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size(true) >= node_use) {
+        printf("Node size parameter is too small, unable to do child split...\n");
+        assert(0);
+    }
+    
+    
+    /* Move tmp pointer to second key of the node */
+    size_t curr_start_offset = nonleaf_skip_single_key(&tmp);
+    curr_start_offset += skip_child_ptr(&tmp);
+    
+    prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1));
+    curr_distance = fabs(NODE_MID_SIZE - curr_start_offset);
+
+    curr_key_size = nonleaf_get_single_key_size(tmp);
+
+    /* Initialize minimum key offset */
+    if (prev_distance < curr_distance) {
+        printf("Node size is most likely too small...\n");
+        assert(0);
+
+        min_distance = prev_distance;
+        min_offset = prev_start_offset;
+
+    } else {
+        
+        /* If second key is the last key, then node split probably shouldn't happen... */
+        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_use) {
+            printf("Something seems off... Node size probably too small... Doing a node split on 2 keys...\n");
+            assert(0);
+        }
+
+        min_offset = curr_start_offset; 
+        min_distance = curr_distance;
+    }
+
+    /* Go through blocks of the node and find the key_offset that is closest to NODE_MID_SIZE */
+    while(prev_distance > curr_distance) {
+
+        /* Get key size of curr_start_offset and update prev_start_offset */
+        prev_key_size = curr_key_size;
+        prev_start_offset = curr_start_offset;
+
+        /* Update curr_start offset to next key */
+        curr_start_offset += nonleaf_skip_key_to_key(&tmp);
+        curr_key_size = nonleaf_get_single_key_size(tmp);
+
+        /* Stop if current key is the last key. Can't node split when nothing on the 
+         * right side of the middle */
+        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_use)
+        {
+            // printf("For large enough node sizes, this shouldn't run...\n");
+            break;
+        }
+        
+        /* Cacluate the new distances between the keys and the node mid point */
+        prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1));
+        curr_distance = fabs(NODE_MID_SIZE - curr_start_offset);
+
+        /* Update the min_offset and min_distance accordingly for next while loop */
+        if ((prev_distance < min_distance)) {
+            min_distance = prev_distance;
+            min_offset = prev_start_offset;
+        }
+
+        if ((curr_distance < min_distance)) {
+            min_distance = curr_distance;
+            min_offset = curr_start_offset;
+        }     
+    } 
+
+    /* Update *node_ptr to start of the key that is closest to the NODE_MID_SIZE */
+    *node_ptr += min_offset;
+    return min_offset;
 }
 
 
@@ -409,12 +524,12 @@ inline size_t get_node_use(char* node) {
 }
 
 /* Function that takes no input and returns the size of initial parameters used for node housekeeping. */
-size_t get_nonleaf_init_param_offset(void) {
+size_t nonleaf_get_init_param_offset(void) {
     return sizeof(bool) + sizeof(size_t); 
 }
 
 /* Function that takes no input and returns the size of initial parameters used for leaf node housekeeping */
-size_t get_leaf_init_param_offset(void) {
+size_t leaf_get_init_param_offset(void) {
     return sizeof(bool) + sizeof(size_t) + sizeof(char*);
 }
 
@@ -434,7 +549,7 @@ char* get_next_leaf_node(char* node) {
     assert(node_is_leaf(node));
 
     /* Return the address of the next node */
-    return *(char**)(node + get_leaf_init_param_offset());
+    return *(char**)(node + leaf_get_init_param_offset());
 }
 
 
@@ -615,7 +730,7 @@ size_t leaf_skip_initial_parameters(char** node_ptr) {
    // }
    // assert(node_is_leaf(*node_ptr));
     
-    size_t tmp_init = get_leaf_init_param_offset();
+    size_t tmp_init = leaf_get_init_param_offset();
     *node_ptr += tmp_init;
 
     return tmp_init;
@@ -678,7 +793,7 @@ size_t nonleaf_skip_initial_parameters(char** node_ptr) {
    // }
    // assert(node_is_leaf(*node_ptr));
     
-    size_t tmp_init = get_nonleaf_init_param_offset();
+    size_t tmp_init = nonleaf_get_init_param_offset();
     *node_ptr += tmp_init;
 
     return tmp_init;
