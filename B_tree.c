@@ -1106,6 +1106,9 @@ inline int compare_current_string(char* node, char* tmp_array, const char* str_c
     }
     
     node += INIT_PARAM_OFFSET;
+
+    // TO CHANGE: get_str_lengh function is kinda dumb, better to just get rid of it and typecast (refer to B+ tree )
+    
     /* Get the string from current block and store in temporary array */
     int tmp_length = get_str_length(node);
 

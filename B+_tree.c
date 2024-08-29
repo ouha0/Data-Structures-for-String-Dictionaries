@@ -44,7 +44,7 @@
 char* Bplus_create(void);
 char* Bplus_split(char* parent, char* child, char* child_location, size_t child_location_offset);
 int Bplus_insert(char**, const char*);
-int Bplus_insert_nonfull(char*, const char*, size_t);
+int Bplus_insert_nonfull(char*, const char*);
 int Bplus_search(char*, char*, const char*);
 
 
@@ -87,8 +87,12 @@ size_t nonleaf_skip_single_block(char** node_ptr);
 size_t leaf_skip_key_to_key(char** node_ptr);
 size_t nonleaf_skip_key_to_key(char** node_ptr);
 
+int leaf_increment_block_counter(char* block);
 
+int compare_current_string(char* block, char* tmp_array, const char* str_cmp);
 
+int leaf_compare_second_string_move(char** node_ptr, size_t node_size, size_t* offset_ptr,
+                                           char* tmp_array, const char* str_cmp);
 /* Think about the node structure of B-trees and B+ trees. This will cause differences in the code... 
  * Also beware about the skipping functions you use. Internal nodes don't have the counter field */
 
@@ -259,6 +263,82 @@ char* Bplus_split(char* parent, char* child, char* child_location, size_t child_
     return NULL;
 }
 
+
+/* Function that takes a non-full node, creates a new key, and 
+ * inserts it in the correct position */
+int Bplus_insert_nonfull(char* node, const char* str) {
+    size_t node_use, offset, block_size;
+    int str_length, store, flag = 1;
+    
+    char* tmp = node;
+
+    char tmp_word[MAX_STRING_BYTES + 1];
+
+
+    while(true) {
+        node_use = get_node_use(node);
+
+        /* If the node is a leaf, place the key in the correct position */
+        if (node_is_leaf(node)) {
+            offset = leaf_skip_initial_parameters(&tmp);
+
+            /* If initial leaf node is emtpy */
+            if (node_use == INITIAL_LEAF_NODE_SIZE_USE) {
+                str_length = strlen(str);
+                block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*);
+
+                /* Shift the blocks of the node to the right */
+                memmove(tmp + block_size, tmp, node_use + 1 - offset);
+                
+                /* Store the key into the node */
+                *(char**)tmp = NULL; tmp += sizeof(char*);
+                *(int*)tmp = str_length; tmp += sizeof(int);
+                memcpy(tmp, str, str_length + 1); tmp += str_length + 1;
+                *(int*)tmp = 1; tmp += sizeof(int);
+                *(char**)tmp = NULL;
+
+                
+            } else { /* Initial leaf node is non-empty i.e. node_use > initial parameters (no need for extra pointer) */
+
+                /* Find the correct position in the node to insert the key */
+                if (((store = compare_current_string(tmp, tmp_word, str)) >= 0)) {
+
+                    flag = 0;
+                    if (store == 0) {
+                        /* Exit function after inserting string / updating */
+                        leaf_increment_block_counter(tmp);
+                        return POSITIVE;
+                    }
+                }
+
+                /* Compare every second string, update counter if match. (pointer updated each time) */
+                if (flag) {
+                    /* Comparing every second string */
+                    while((store = leaf_compare_second_string_move(&tmp, node_use, &offset, tmp_word, str)) <= 0) {
+
+                        /* Repeating String */
+                        if (store == 0) {
+                            leaf_increment_block_counter(tmp);
+                            return POSITIVE;
+                        }
+                    }
+                }
+            }
+
+            /* Update the node use */
+            update_node_use(node, node_use + block_size);
+
+
+
+        } else {
+
+        }
+        
+
+    }
+
+
+}
 
 /* Function that takes as input (is_leaf[boolean], node_size[size_t]). The function ouputs an empty node (char*) */
 char* initialize_node(bool is_leaf, size_t node_size) {
@@ -871,4 +951,114 @@ size_t nonleaf_skip_key_to_key(char** node_ptr) {
     next_key_offset += skip_child_ptr(node_ptr);
 
     return next_key_offset;
+}
+
+
+
+/* Function that takes a a pointer to the start of some block, array from stack,
+ * and string to compare as input. 
+ * The function outputs < 0 if string in block smaller than str_cmp, 0 if equal, 
+ * > 0 if string in block is larger than str_cmp. NOTE THAT THIS FUNCTION DOESN'T
+ * AlTER THE PARENT NODE_PTR
+ * */
+
+
+
+// Probably better to get rid of this function altogether and create a custom strcmp function that moves the pointer
+// as the string is compared, but we work on that later
+inline int compare_current_string(char* block, char* tmp_array, const char* str_cmp) {
+    if (!block|| !tmp_array) {
+        fprintf(stderr, "Emtpy pointer input...\n");
+        return POSITIVE;
+    }
+    
+    /* Get the string from current block and store in temporary array */
+    int tmp_length = *(int*)(block + sizeof(char*));
+
+    // assert(tmp_length >= 0);
+    memcpy(tmp_array, block + sizeof(char*) + sizeof(int), tmp_length + 1);
+
+    /* When string in block compared with string to find */
+    keys_processed++;
+
+    /* return comparison results of two strings */
+    return strcmp(tmp_array, str_cmp);
+}
+
+
+
+/* Note: This function requires the block to belong to a leaf node, since internal nodes have no string 
+ * counters. 
+ * Function that takes a char* pointer to the start of some block. The function assumes the pointer points
+ * to the start of the block. The function increments the counter of part if the key 
+ * by 1 (+= 1) */
+int leaf_increment_block_counter(char* block) {
+   // if (!block) {
+   //     fprintf(stderr, "Null input...\n");
+   //     return 0;
+   // }
+
+    /* Skip past child pointer, str_length, string so the pointer points to counter */
+    block += sizeof(char*);
+    int tmp_length = *(int*)block; block += sizeof(int) + tmp_length + 1;
+    
+    *(int*)(block) += 1; //Increment node key counter by 1
+    
+    keys_processed++; // measuring variable 
+
+    return 1;
+}
+
+
+
+/* Note: This function is for blocks belonging to leaf nodes 
+ * Function that compares the string in the second block with strcmp. It 
+ * *node_ptr is currently pointer to the start of the first block.
+ * The function outputs -1 if string in block smaller than str_cmp, 0 if equal 
+ * and +1 if string in block is larger than str_cmp;
+ * */
+
+/* ********* !!!!!! */
+/* This function might be the one causing the overhead. We compare strings without moving the pointer
+ * just incase we still need to position of the pointer ...*/
+inline int leaf_compare_second_string_move(char** node_ptr, size_t node_size, size_t* offset_ptr, char* tmp_array, 
+                          const char* str_cmp) {
+
+    if (!node_ptr || !tmp_array) {
+        printf("Something's wrong...\n");
+        assert(0);
+    }
+
+    /* This condition is required for the start, where only a single pointer*/
+    //if (*offset_ptr + sizeof(char*) >= node_size) {
+    //    printf("Currently at the last block (compare_second_string_move)");
+    //    return POSITIVE;
+    //}
+    
+
+    /* Move *node_ptr to next block, and store string length */
+    *node_ptr += sizeof(char*);  // Skip child ptr
+    int tmp_length = *(int*)(*node_ptr);  // store string length 
+    (*node_ptr) += sizeof(int) + tmp_length + 1 + sizeof(int); // Skip string length, string and string counter 
+
+    /* Move offset forward one block to be consistent with *node_ptr */
+    *offset_ptr += sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int); 
+    
+
+    /* Currently at the relative second block. if this block has no keys, then it is the last block
+     * we don't modify this */
+    if (*offset_ptr + sizeof(char*) == node_size) {
+        return POSITIVE;
+    }
+
+    
+    tmp_length = get_str_length(*node_ptr);
+
+    /* Copy the string in the second block to tmp array */
+    memcpy(tmp_array, *node_ptr + sizeof(char*) + sizeof(int), tmp_length + 1);
+
+    keys_processed++;
+    
+    /* Compare the second block string with the string to insert */
+    return strcmp(tmp_array, str_cmp);
 }
