@@ -393,6 +393,9 @@ int B_tree_insert(char** root_ptr, const char* str) {
         
         char* prev_root = *root_ptr; 
 
+        // TO CHANGE: NO NEED FOR char* s pointer
+
+
         /* allocate s as the new root */
         char* s = initialize_node(false, NODE_SIZE);
         *root_ptr = s; // The new node becomes the new root

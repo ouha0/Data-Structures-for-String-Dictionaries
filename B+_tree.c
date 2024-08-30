@@ -338,7 +338,9 @@ int Bplus_insert_nonfull(char* node, const char* str) {
         } else {
             // Note when equal, we move to the RHS of the matching key (hence also includes equality)
 
-            if (((store = compare_current_string(node, tmp_word, str)) >= 0)) {
+            offset = nonleaf_skip_initial_parameters(&tmp);
+
+            if (((store = compare_current_string(tmp, tmp_word, str)) >= 0)) {
                 flag = 1;
             }
 
@@ -373,21 +375,122 @@ int Bplus_insert_nonfull(char* node, const char* str) {
 
 /* NOTE: This function has no been checked yet!!! */
 
-
-
 /* The function inserts the key into the correct position of the tree */
 int Bplus_insert(char** root_ptr, const char* str) {
-    
-    if (*root_ptr == NULL) {
-        *root_ptr = Bplus_create();
+   
+    size_t prev_root_size = get_node_use(*root_ptr);
+    bool is_leaf = node_is_leaf(*root_ptr);
 
-    } else {
+    /* If current root is full */
+    if (prev_root_size + get_max_block_size(is_leaf) + 1 > NODE_SIZE) {
+        char* prev_root = *root_ptr;
+        
+        /* Create a new root */
+        *root_ptr = initialize_node(false, NODE_SIZE);
+        char* tmp = *root_ptr; 
+
+        /* Skip initial parameters, add new child pointer and update node size */
+        tmp += nonleaf_get_init_param_offset();
+        *(char**)tmp = prev_root; 
+        update_node_use(*root_ptr, nonleaf_get_init_param_offset() + sizeof(char*));
+        *(tmp + sizeof(char*)) = '\0';
+
+        /* Perform node split on previously full node and then insert node */  
+        Bplus_split(*root_ptr, prev_root, tmp, nonleaf_get_init_param_offset());
+        
+        /* Now *root_ptr is not full */
         Bplus_insert_nonfull(*root_ptr, str);
-    } 
+
+    } else { // Insert as usual, since root node is not full
+        
+        Bplus_insert_nonfull(*root_ptr, str);
+    }
 
     return 1;
 }
 
+
+/* Function that takes the root node as input, a temporary heap array, and search string as input. The function outputs whether 
+ * 1 if string is found in B+ tree and 0 vice-versa */
+int Bplus_search(char* root, char* word_store, const char* str) {
+    
+    char* current = root; size_t curr_node_size; bool is_leaf;
+    int store, flag = 0;
+    char* tmp; 
+    size_t offset = 0;
+
+    while (current != NULL) {
+        /* Get important properties of the node first */
+        tmp = current;
+        curr_node_size = get_node_use(current); 
+        is_leaf = node_is_leaf(current);
+        
+        /* Depending on type of node, offsets are different */
+
+        /* If node is a leaf */
+        if (is_leaf) {
+            leaf_skip_initial_parameters(&tmp);
+
+            /* Find the correct position in the node to insert the key */
+            if (((store = compare_current_string(tmp, word_store, str)) >= 0)) {
+                /* If string smaller than current key, we can stop */
+                flag = 0;
+                /* String is found */
+                if (store == 0) {
+
+                    /* Just for testing */
+                    printf("word to search is %s, word currently stored is %s. They should the same :) \n", str, word_store);
+                    return 1;
+
+                /* Otherwise string can't be found */
+                } else {
+                    printf("String not found for some reason, this shouldn't be the case\n");
+                    return 0;
+                }
+            }
+
+            /* Compare every second string, update counter if match. (pointer updated each time) */
+            if (flag) {
+                /* Comparing every second string */
+                while((store = leaf_compare_second_string_move(&tmp, curr_node_size, &offset, word_store, str)) <= 0) {
+                    /* String is found */
+                    if (store == 0) {
+
+                        /* Just for testing */
+                        printf("word to search is %s, word currently stored is %s. They should the same :) \n", str, word_store);
+                        return 1;
+
+                    /* Otherwise string can't be found */
+                    } else {
+                        printf("String not found for some reason, this shouldn't be the case\n");
+                        return 0;
+                    }
+
+                }
+            }
+
+
+        /* If node is not leaf */
+        } else {
+            nonleaf_skip_initial_parameters(&tmp);
+
+            if (((store = compare_current_string(current, word_store, str)) >= 0)) {
+                flag = 1;
+            }
+
+            /* Compare every second string, update counter if match. (pointer updated each time) */
+            if (!flag) {
+                /* Comparing every second string */
+                while((store = nonleaf_compare_second_string_move(&tmp, curr_node_size, &offset, word_store, str)) <= 0) {
+                    /* Repeating String */
+                }
+            }
+            /* Move to child pointer */
+            current = *(char**)tmp;
+        }
+    }
+    return 0;
+}
 
 
 
@@ -655,12 +758,12 @@ inline size_t get_node_use(char* node) {
 }
 
 /* Function that takes no input and returns the size of initial parameters used for node housekeeping. */
-size_t nonleaf_get_init_param_offset(void) {
+inline size_t nonleaf_get_init_param_offset(void) {
     return sizeof(bool) + sizeof(size_t); 
 }
 
 /* Function that takes no input and returns the size of initial parameters used for leaf node housekeeping */
-size_t leaf_get_init_param_offset(void) {
+inline size_t leaf_get_init_param_offset(void) {
     return sizeof(bool) + sizeof(size_t) + sizeof(char*);
 }
 
