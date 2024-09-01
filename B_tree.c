@@ -577,6 +577,9 @@ size_t move_mid_node(char** node_ptr) {
 
     /* Variables to keep track of offset of closest key to mid point */
     size_t min_offset, min_distance; // size_t tmp_min; // tmp_min not being used
+
+
+    // TO CHANGE: THIS SHOULD BE A DOUBLE TYPE I THINK 
     size_t prev_distance, curr_distance;
 
 
@@ -600,6 +603,8 @@ size_t move_mid_node(char** node_ptr) {
     // TO CHANGE: This part can be more concise. Refer to B+ tree 
     
     /* Move tmp pointer to second key of the node */
+
+    // TO CHANGE: THIS COULD BE SHORTER, can use tmp immediately. Refer to B+ tree implementation 
     size_t curr_start_offset = skip_block_from_start(&tmp, 1);
     curr_start_offset += skip_child_ptr(&tmp);
     
