@@ -46,6 +46,8 @@ int Bplus_insert(char**, const char*);
 int Bplus_insert_nonfull(char*, const char*);
 int Bplus_search(char*, char*, const char*);
 
+void free_Bplus(char* root);
+void free_array_list(char** word_list);
 
 
 /* Supplementary main function prototypes */
@@ -200,7 +202,7 @@ int main(int argc, char** argv) {
 
 
     /* Print all nodes */
-    //printf("Printing all B-tree keys\n");
+    //printf("Printing all B+-tree keys\n");
     //print_B_tree(tree_root, word);
 
     ///* Print word list array */
@@ -208,6 +210,15 @@ int main(int argc, char** argv) {
 
     //if (CHECK_TOGGLE) 
     //    B_tree_check(tree_root);
+
+    printf("%d, SZX, B+-tree, node size parameter\n", NODE_SIZE);
+    printf("%d, NUX, B+-tree, non-unique strings\n", non_unique_key_counter);
+    printf("%.3f, INX, B+-tree, seconds to insert\n", elapsed1);
+    printf("%.3f, SRX, B+-tree, seconds to search\n", elapsed2);
+    printf("%zu, MUX, B+-tree, memory usage\n", memory_usage);
+    printf("%d, UKX, B+-tree, unique strings\n", unique_key_counter);
+    printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
+    printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
 
 
     //printf("\n\n\n");
@@ -225,10 +236,10 @@ int main(int argc, char** argv) {
     //}
 
 
-    ///* Free the whole tree node */
-    //free_B_tree(tree_root);
-    ///* Free the array list */
-    //free_array_list(word_list);
+    /* Free the whole tree node */
+    free_Bplus(tree_root);
+    /* Free the array list */
+    free_array_list(word_list);
 
     
 
@@ -628,6 +639,49 @@ int Bplus_search(char* root, char* word_store, const char* str) {
     return 0;
 }
 
+
+/* Function that takes the tree root as input and frees memory of all nodes */
+void free_Bplus(char* root) {
+    if (root == NULL)
+        return;
+    
+    bool is_leaf = node_is_leaf(root);
+    size_t offset;
+
+    char* ptr = root; int tmp_length;
+    if (is_leaf) {
+        offset = leaf_skip_initial_parameters(&ptr);
+    } else {
+        offset = nonleaf_skip_initial_parameters(&ptr);
+    }
+
+    size_t node_space_used = get_node_use(root);
+
+    /* Free each child ptr node */
+    while(offset < node_space_used) {
+        /* Recurse child ptr */
+        free_Bplus(*(char**)(ptr));
+
+        ptr += sizeof(char*); offset += sizeof(char*);
+
+        if (offset >= node_space_used) {
+            break;
+        }
+        
+        /* Move pointer and offset to the next child ptr */
+        tmp_length = *(int*)(ptr); 
+        ptr += sizeof(int) + tmp_length + 1;
+        offset += sizeof(int) + tmp_length + 1;
+
+        if (is_leaf) {
+            ptr += sizeof(int); offset += sizeof(int);
+        }
+
+    }
+
+    /* Free the node */
+    free(root);
+}
 
 
 /* Function that takes as input (is_leaf[boolean], node_size[size_t]). The function ouputs an empty node (char*) */
@@ -1583,3 +1637,14 @@ void nonleaf_print_node_lexigraphic_check(char* node) {
     
 }
 
+
+
+/* Function that takes as input a pointer to a char** 2d array of strings. The funtion frees all strings in the array */
+void free_array_list(char** word_list) {
+    /* Free columns */
+    for (int i = 0; i < WORDS_NUM; i++) {
+        free(word_list[i]);
+    }
+    /* Free the row */
+    free(word_list);
+}
