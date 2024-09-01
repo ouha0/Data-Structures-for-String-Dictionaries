@@ -1,4 +1,3 @@
-
 /* Libraries */
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +35,7 @@
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 512
-#define WORDS_NUM 10000 // Parameter to control how many words to get from text file 
+#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
 
@@ -200,6 +199,36 @@ int main(int argc, char** argv) {
     elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
 
+    /* Print all nodes */
+    //printf("Printing all B-tree keys\n");
+    //print_B_tree(tree_root, word);
+
+    ///* Print word list array */
+    //// print_word_array(word_list, counter);
+
+    //if (CHECK_TOGGLE) 
+    //    B_tree_check(tree_root);
+
+
+    //printf("\n\n\n");
+    //printf("For B-tree with node size %d:\n", NODE_SIZE);
+    //printf("There are %d non-unique strings in the B-tree, there should be %zu non-unique strings (inserted strings)\n",
+    //       non_unique_key_counter, counter - 1);
+    //printf("Inserting %zu non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", counter - 1, elapsed1, elapsed2);
+    //printf("The total memory usage was %zu bytes\n", memory_usage);
+    //printf("There are %d unique keys in the B-tree\n", unique_key_counter);
+    //printf("%zu keys were processed\n", keys_processed);
+    //printf("There are %d nodes in the B-tree\n", number_of_nodes);
+    //
+    //if (CHECK_TOGGLE) {
+    //    printf("The average node fill ratio is %lf\n", avg_node_use_ratio / number_of_nodes);
+    //}
+
+
+    ///* Free the whole tree node */
+    //free_B_tree(tree_root);
+    ///* Free the array list */
+    //free_array_list(word_list);
 
     
 
@@ -403,8 +432,11 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
                     } else {
                         str_length = strlen(str);
 
+                        // assert(str_length >= 0);
+
                         /* Shift everything to the right to fit the new block */
                         block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
+
 
                         memmove(tmp + block_size, tmp, node_use + 1 - offset);
                         *(char**)(tmp) = NULL; // Set child ptrs to NULL 
@@ -449,8 +481,8 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
             /* Get correct child pointer node */
             char* child = *(char**)tmp; 
             
-            /* Split child node if it is full */
-            if (get_node_use(child) + get_max_block_size(false) + 1 > NODE_SIZE) {
+            /* Split child node if it is full (we assume child node is leaf for safer split) */
+            if (get_node_use(child) + get_max_block_size(true) + 1 > NODE_SIZE) {
                 Bplus_split(node, child, tmp, offset);
 
                 /* Shift by one block is str is larger or equal to current key in parent */
@@ -509,21 +541,26 @@ int Bplus_insert(char** root_ptr, const char* str) {
 int Bplus_search(char* root, char* word_store, const char* str) {
     
     char* current = root; size_t curr_node_size; bool is_leaf;
-    int store, flag = 0;
+    int store, flag;
     char* tmp; 
-    size_t offset = 0;
+    size_t offset;
 
     while (current != NULL) {
         /* Get important properties of the node first */
-        tmp = current;
         curr_node_size = get_node_use(current); 
-        is_leaf = node_is_leaf(current);
+        tmp = current;
+        flag = 1;
         
         /* Depending on type of node, offsets are different */
 
         /* If node is a leaf */
-        if (is_leaf) {
-            leaf_skip_initial_parameters(&tmp);
+        if (node_is_leaf(current)) {
+
+            /* CHECKING */
+            // leaf_print_node_lexigraphic_check(current);
+
+            /* Skip the initial parameters */
+            offset = leaf_skip_initial_parameters(&tmp);
 
             /* Find the correct position in the node to insert the key */
             if (((store = compare_current_string(tmp, word_store, str)) >= 0)) {
@@ -533,12 +570,12 @@ int Bplus_search(char* root, char* word_store, const char* str) {
                 if (store == 0) {
 
                     /* Just for testing */
-                    printf("word to search is %s, word currently stored is %s. They should the same :) \n", str, word_store);
+                    // printf("word to search is %s, word currently stored is %s. They should the same :) \n", str, word_store);
                     return 1;
 
                 /* Otherwise string can't be found */
                 } else {
-                    printf("String not found for some reason, this shouldn't be the case\n");
+                        printf("String %s not found for some reason, this shouldn't be the case\n", str);
                     return 0;
                 }
             }
@@ -546,34 +583,39 @@ int Bplus_search(char* root, char* word_store, const char* str) {
             /* Compare every second string, update counter if match. (pointer updated each time) */
             if (flag) {
                 /* Comparing every second string */
-                while((store = leaf_compare_second_string_move(&tmp, curr_node_size, &offset, word_store, str)) <= 0) {
+                while((store = leaf_compare_second_string_move(&tmp, curr_node_size, &offset, word_store, str)) < 0) {
+                }
                     /* String is found */
                     if (store == 0) {
 
                         /* Just for testing */
-                        printf("word to search is %s, word currently stored is %s. They should the same :) \n", str, word_store);
+                        // printf("word to search is %s, word currently stored is %s. They should the same :) \n", str, word_store);
                         return 1;
 
                     /* Otherwise string can't be found */
                     } else {
-                        printf("String not found for some reason, this shouldn't be the case\n");
+                        printf("String %s not found for some reason, this shouldn't be the case\n", str);
                         return 0;
                     }
 
-                }
             }
 
 
         /* If node is not leaf */
         } else {
-            nonleaf_skip_initial_parameters(&tmp);
+            
+            /* CHECKING */
+            // nonleaf_print_node_lexigraphic_check(current);
 
-            if (((store = compare_current_string(current, word_store, str)) >= 0)) {
-                flag = 1;
+            /* Skip the initial parameters */
+            offset = nonleaf_skip_initial_parameters(&tmp);
+
+            if (((store = compare_current_string(tmp, word_store, str)) > 0)) {
+                flag = 0;
             }
 
             /* Compare every second string, update counter if match. (pointer updated each time) */
-            if (!flag) {
+            if (flag) {
                 /* Comparing every second string */
                 while((store = nonleaf_compare_second_string_move(&tmp, curr_node_size, &offset, word_store, str)) <= 0) {
                     /* Repeating String */
