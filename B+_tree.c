@@ -1730,3 +1730,34 @@ void print_all_keys (char* mostleft_node) {
     printf("\n");
     return;
 }
+
+
+
+
+
+
+/* Experimenting */
+
+/* Function that takes a ptr to a str (in a key) and string to compare as input. The funciton compares 
+ * the relative lexigraphic size of the strings, and outputs the results. The function also moves the 
+ * ptr to the string to the start of the next block */
+int custom_strcmp(char** str_ptr, const char* str) {
+
+    /* String comparision between the two strings */
+    while(**str_ptr & (**str_ptr == *str)) {
+        (*str_ptr)++;
+        str++;
+    }
+
+    /* Lexigraphic difference between the two strings */
+    int difference = (unsigned char)(**str_ptr) - (unsigned char)(*str);
+
+    /* Move ptr past the end of the string */
+    while(**str_ptr) {
+        (*str_ptr)++;
+    } 
+    (*str_ptr)++;
+
+    return difference;
+}
+
