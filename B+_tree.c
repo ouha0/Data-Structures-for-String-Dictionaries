@@ -26,6 +26,7 @@
 #define ALLOCATE_OVERHEAD 8
 
 #define PRINT_TOGGLE 0
+#define KEY_COUNT 1
 #define CHECK_TOGGLE 1
 #define ONE_MILLION 1000000
 #define TEN_MILLION 10000000
@@ -35,9 +36,10 @@
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 512
-#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
+#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
+
 
 /* Main function prototypes */
 char* Bplus_create(void);
@@ -104,6 +106,10 @@ int nonleaf_compare_second_string_move(char** node_ptr, size_t node_size, size_t
 
 void nonleaf_print_node_lexigraphic_check(char* node);
 void leaf_print_node_lexigraphic_check(char* node);
+
+
+char* left_most_node(char* root);
+void print_all_keys (char* mostleft_node);
 
 /* Think about the node structure of B-trees and B+ trees. This will cause differences in the code... 
  * Also beware about the skipping functions you use. Internal nodes don't have the counter field */
@@ -187,7 +193,7 @@ int main(int argc, char** argv) {
     elapsed1 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
 
-    printf("Beginning B-tree word_list searches\n\n\n");
+    printf("Beginning B+-tree word_list searches\n\n\n");
     /* Search for the words in the binary tree */
 
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
@@ -202,14 +208,9 @@ int main(int argc, char** argv) {
 
 
     /* Print all nodes */
-    //printf("Printing all B+-tree keys\n");
-    //print_B_tree(tree_root, word);
+    char* left_most = left_most_node(tree_root);
+    print_all_keys(left_most);
 
-    ///* Print word list array */
-    //// print_word_array(word_list, counter);
-
-    //if (CHECK_TOGGLE) 
-    //    B_tree_check(tree_root);
 
     printf("%d, SZX, B+-tree, node size parameter\n", NODE_SIZE);
     printf("%d, NUX, B+-tree, non-unique strings\n", non_unique_key_counter);
@@ -219,6 +220,7 @@ int main(int argc, char** argv) {
     printf("%d, UKX, B+-tree, unique strings\n", unique_key_counter);
     printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
     printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
+    printf("%lf, NRX, B+-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
 
 
     //printf("\n\n\n");
@@ -236,6 +238,7 @@ int main(int argc, char** argv) {
     //}
 
 
+    printf("Cleaning up memory...\n");
     /* Free the whole tree node */
     free_Bplus(tree_root);
     /* Free the array list */
@@ -335,6 +338,8 @@ char* Bplus_split(char* parent, char* child, char* child_location, size_t child_
         /* Copy keys from child node to child_right */
         memmove(child_right + leaf_get_init_param_offset() + sizeof(char*), mid_child_ptr, child_node_use + 1 - mid_child_offset);
 
+        /* Update new child linked list pointer */
+        *(char**)(child_right + nonleaf_get_init_param_offset()) = *(char**)(child + nonleaf_get_init_param_offset());
         /* Save pointer to next leaf node in child node before child_right node is modified */
         *(char**)(child + nonleaf_get_init_param_offset()) = child_right;
 
@@ -419,7 +424,6 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
 
                 /* Find the correct position in the node to insert the key */
                 if (((store = compare_current_string(tmp, tmp_word, str)) >= 0)) {
-
                     flag = 0;
                     if (store == 0) {
                         /* Exit function after inserting string / updating */
@@ -440,27 +444,26 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
                         return POSITIVE;
 
                     /* Found position to insert string */    
-                    } else {
-                        str_length = strlen(str);
-
-                        // assert(str_length >= 0);
-
-                        /* Shift everything to the right to fit the new block */
-                        block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
-
-
-                        memmove(tmp + block_size, tmp, node_use + 1 - offset);
-                        *(char**)(tmp) = NULL; // Set child ptrs to NULL 
-
-                        tmp += sizeof(char*);
-                        *(int*)tmp = str_length; tmp += sizeof(int); // Store strlength in key 
-                        memcpy(tmp, str, str_length + 1); // Store string inside node 
-
-                        tmp += str_length + 1;
-                        *(int*)tmp = INITIAL_COUNT; 
-                     
                     }
                 }
+
+                str_length = strlen(str);
+
+                // assert(str_length >= 0);
+
+                /* Shift everything to the right to fit the new block */
+                block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int);
+
+
+                memmove(tmp + block_size, tmp, node_use + 1 - offset);
+                *(char**)(tmp) = NULL; // Set child ptrs to NULL 
+
+                tmp += sizeof(char*);
+                *(int*)tmp = str_length; tmp += sizeof(int); // Store strlength in key 
+                memcpy(tmp, str, str_length + 1); // Store string inside node 
+
+                tmp += str_length + 1;
+                *(int*)tmp = INITIAL_COUNT; 
             }
 
             /* Update the node use, and quit loop to end the function */
@@ -542,6 +545,8 @@ int Bplus_insert(char** root_ptr, const char* str) {
         
         Bplus_insert_nonfull(*root_ptr, str);
     }
+
+    non_unique_key_counter++;
 
     return 1;
 }
@@ -981,7 +986,7 @@ char* get_next_leaf_node(char* node) {
 
 /* Function that takes a node and size_t node_size as input. 
  * The function updates the current node use to new_size */
-int update_node_use(char* node, size_t new_size) {
+inline int update_node_use(char* node, size_t new_size) {
     if (!node) {
         fprintf(stderr, "Null pointer...\n");
         return 0;
@@ -1166,7 +1171,7 @@ size_t leaf_skip_initial_parameters(char** node_ptr) {
 /* Note: This function is for leaf nodes 
  * Function that takes a double pointer to the start of some block
  * and offsets pointer to node by one block */
-size_t leaf_skip_single_block(char** node_ptr) {
+inline size_t leaf_skip_single_block(char** node_ptr) {
    // if (!node_ptr) {
    //     printf("Null input\n");
    //     assert(0);
@@ -1187,7 +1192,7 @@ size_t leaf_skip_single_block(char** node_ptr) {
  * Function that takes a double pointer to the start of a node and index as input. 
  * The function offsets the ptr to node by the number of index blocks to skip
  * and outputs the offset size */
-size_t nonleaf_skip_block_from_start(char** node_ptr, int index) { 
+inline size_t nonleaf_skip_block_from_start(char** node_ptr, int index) { 
 
 
    // if (!node_ptr) {
@@ -1211,7 +1216,7 @@ size_t nonleaf_skip_block_from_start(char** node_ptr, int index) {
 /* Note: This function is used for leaf nodes 
  * Function that takes a double pointer to the start of a node as input and offsets pointer to 
  * node by initial housekeeping parameters. It also outputs the offset */
-size_t nonleaf_skip_initial_parameters(char** node_ptr) {
+inline size_t nonleaf_skip_initial_parameters(char** node_ptr) {
     
    // if (!node_ptr) {
    //     printf("Null input\n");
@@ -1230,7 +1235,7 @@ size_t nonleaf_skip_initial_parameters(char** node_ptr) {
 /* Note: This function is for non-leaf nodes 
  * Function that takes a double pointer to the start of some block
  * and offsets pointer to node by one block */
-size_t nonleaf_skip_single_block(char** node_ptr) {
+inline size_t nonleaf_skip_single_block(char** node_ptr) {
    // if (!node_ptr) {
    //     printf("Null input\n");
    //     assert(0);
@@ -1518,7 +1523,7 @@ void leaf_print_node_lexigraphic_check(char* node) {
     }
 
     printf("Find node size: %zu\n", node_space_used);
-    printf("The linked list next pointer is %p\n", node + nonleaf_get_init_param_offset());
+    printf("The linked list next pointer is %p\n", *(char**)(node + nonleaf_get_init_param_offset()));
 
     char* ptr = node; 
     size_t offset = 0; offset += leaf_skip_initial_parameters(&ptr);
@@ -1647,4 +1652,81 @@ void free_array_list(char** word_list) {
     }
     /* Free the row */
     free(word_list);
+}
+
+
+
+/* Function that returns the left most leaf node in the B+ tree */
+char* left_most_node(char* root) {
+    char* current = root;
+
+    while ((current != NULL) & (!node_is_leaf(current))) {
+        current = *(char**)(current + nonleaf_get_init_param_offset());
+    }
+
+    return current;
+}
+
+/* Function that takes the left most node as input, and prints all keys 
+ * in the B+-tree */
+void print_all_keys (char* mostleft_node) {
+    if (!mostleft_node) {
+        printf("invalid input\n");
+        assert(0);
+    }
+    
+    char* current = mostleft_node;
+    char* next, *tmp; 
+    size_t node_use, offset;
+    int tmp_length, tmp_counter; 
+
+    char word[MAX_STRING_BYTES + 1];
+    double tmp_ratio;
+
+    while (current != NULL) {
+        node_use = get_node_use(current);
+        tmp = current;
+        
+        /* Node ratio */
+        tmp_ratio = ((double)(node_use) / NODE_SIZE);
+        avg_node_use_ratio += tmp_ratio;
+
+
+        offset = leaf_skip_initial_parameters(&tmp);
+
+        if (KEY_COUNT) {
+            while(offset < node_use) {
+
+                /* Go past child pointer */
+                tmp += sizeof(char*); offset += sizeof(char*);
+                if (offset >= node_use) {
+                    break;
+                }
+                
+                /* Move pointer and offset to the next child ptr */
+                tmp_length = *(int*)(tmp); 
+                tmp += sizeof(int); offset += sizeof(int);
+                memcpy(word, tmp, tmp_length + 1);
+
+                tmp += tmp_length + 1; offset += tmp_length + 1;
+
+                tmp_counter = *(int*)tmp; 
+                tmp += sizeof(int); offset += sizeof(int);
+
+                /* Print the data to stdout (for checking mainly) */
+
+                if (PRINT_TOGGLE) {
+                    fprintf(stdout, "Length:%d  ", tmp_length);
+                    fprintf(stdout, "String:%s  ", word);
+                    fprintf(stdout, "Counter:%d  ", tmp_counter);
+                }
+                // unique_key_counter++;
+            }
+        }
+        /* Move to next leaf node */
+        current = *(char**)(current + nonleaf_get_init_param_offset());
+    }
+
+    printf("\n");
+    return;
 }

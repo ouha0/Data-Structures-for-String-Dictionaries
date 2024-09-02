@@ -35,9 +35,9 @@
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 512
-#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
-// #define FILENAME "wordstream.txt"
-#define FILENAME "wikipedia_with_cap.txt"
+#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
+#define FILENAME "wordstream.txt"
+// #define FILENAME "wikipedia_with_cap.txt"
 
 
 /* Function Prototypes(main) */
@@ -221,8 +221,8 @@ int main(int argc, char** argv) {
     elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
     
     /* Print all nodes */
-    printf("Printing all B-tree keys\n");
-    print_B_tree(tree_root, word);
+    //printf("Printing all B-tree keys\n");
+    //print_B_tree(tree_root, word);
 
     /* Print word list array */
     // print_word_array(word_list, counter);
@@ -230,20 +230,30 @@ int main(int argc, char** argv) {
     if (CHECK_TOGGLE) 
         B_tree_check(tree_root);
 
+    printf("%d, SZX, B+-tree, node size parameter\n", NODE_SIZE);
+    printf("%d, NUX, B+-tree, non-unique strings\n", non_unique_key_counter);
+    printf("%.3f, INX, B+-tree, seconds to insert\n", elapsed1);
+    printf("%.3f, SRX, B+-tree, seconds to search\n", elapsed2);
+    printf("%zu, MUX, B+-tree, memory usage\n", memory_usage);
+    printf("%d, UKX, B+-tree, unique strings\n", unique_key_counter);
+    printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
+    printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
+    printf("%lf, NRX, B+-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
 
-    printf("\n\n\n");
-    printf("For B-tree with node size %d:\n", NODE_SIZE);
-    printf("There are %d non-unique strings in the B-tree, there should be %zu non-unique strings (inserted strings)\n",
-           non_unique_key_counter, counter - 1);
-    printf("Inserting %zu non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", counter - 1, elapsed1, elapsed2);
-    printf("The total memory usage was %zu bytes\n", memory_usage);
-    printf("There are %d unique keys in the B-tree\n", unique_key_counter);
-    printf("%zu keys were processed\n", keys_processed);
-    printf("There are %d nodes in the B-tree\n", number_of_nodes);
-    
-    if (CHECK_TOGGLE) {
-        printf("The average node fill ratio is %lf\n", avg_node_use_ratio / number_of_nodes);
-    }
+
+    //printf("\n\n\n");
+    //printf("For B-tree with node size %d:\n", NODE_SIZE);
+    //printf("There are %d non-unique strings in the B-tree, there should be %zu non-unique strings (inserted strings)\n",
+    //       non_unique_key_counter, counter - 1);
+    //printf("Inserting %zu non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", counter - 1, elapsed1, elapsed2);
+    //printf("The total memory usage was %zu bytes\n", memory_usage);
+    //printf("There are %d unique keys in the B-tree\n", unique_key_counter);
+    //printf("%zu keys were processed\n", keys_processed);
+    //printf("There are %d nodes in the B-tree\n", number_of_nodes);
+    //
+    //if (CHECK_TOGGLE) {
+    //    printf("The average node fill ratio is %lf\n", avg_node_use_ratio / number_of_nodes);
+    //}
 
 
     /* Free the whole tree node */

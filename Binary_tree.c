@@ -20,8 +20,8 @@
 #define INITIAL_COUNT 1
 #define ALLOCATE_OVERHEAD 8
 
-// #define FILENAME "wordstream.txt"
-#define FILENAME "wikipedia_with_cap.txt"
+#define FILENAME "wordstream.txt"
+// #define FILENAME "wikipedia_with_cap.txt"
 
 #define PRINT_TOGGLE 0
 
@@ -30,7 +30,7 @@
 #define HUNDRED_MILLION 100000000
 
 /* Data Volume */
-#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
+#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
 
 /* PROBLEMS */
 
@@ -151,11 +151,13 @@ int main(int argc, char** argv) {
 
     /* Printing all the measuring variable data */
     printf("For Binary tree:\n");
-    printf("Inserting %zu non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", counter - 1, elapsed1, elapsed2);
-    printf("The total memory usage was %zu bytes\n", memory_usage);
-    printf("There are %d unique keys in the Binary tree\n", unique_key_counter);
-    printf("%zu keys were processed\n", keys_processed);
-    printf("There are %d nodes in the Binary tree\n", number_of_nodes);
+    printf("%d, NUX, B+-tree, non-unique strings\n", non_unique_key_counter);
+    printf("%.3f, INX, B+-tree, seconds to insert\n", elapsed1);
+    printf("%.3f, SRX, B+-tree, seconds to search\n", elapsed2);
+    printf("%zu, MUX, B+-tree, memory usage\n", memory_usage);
+    printf("%d, UKX, B+-tree, unique strings\n", unique_key_counter);
+    printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
+    printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
 
 
 
