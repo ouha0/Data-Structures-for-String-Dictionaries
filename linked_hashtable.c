@@ -25,10 +25,13 @@
 #define ALLOCATE_OVERHEAD 8
 
 /* Parameter choice */
-#define TABLE_SIZE (1 << 21)
-#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
+#define TABLE_SIZE (1 << 18)
+#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
+
+/* Toggle */
+#define PRINT_TOGGLE 0
 
 
 /* Hash table structure */
@@ -36,8 +39,6 @@ typedef struct{
     char** buckets;
     int table_size;
 }hashtable_t;
-
-
 
 
 /* Main function prototypes */
@@ -49,6 +50,9 @@ void freehash(hashtable_t *table);
 /* Supplementary function prototypes */
 hashtable_t* create_hashtable(int size);
 char* create_node(char* const str);
+
+/* Prototypes for checking */
+void check_print(hashtable_t* table, bool print, char* buffer);
 
 static int seed = 73802;
 
@@ -136,6 +140,8 @@ int main(int argc, char** argv) {
     elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
 
+    check_print(table, PRINT_TOGGLE, word);
+
     /* Measuring data */
     printf("%d, NUX, Linked-Hash, non-unique strings\n", non_unique_key_counter);
     printf("%.3f, INX, Linked-Hash, seconds to insert\n", elapsed1);
@@ -172,6 +178,9 @@ char* create_node(char* str) {
     *(int*)tmp = str_length; tmp += sizeof(int);
     memcpy(tmp, str, str_length + 1); tmp += str_length + 1;
     *(int*)tmp = 1;
+
+    /* Key is stored into a new node -> keys_processed */
+    keys_processed++;
 
     number_of_nodes++;
     memory_usage += (sizeof(char*) + sizeof(int) + (str_length + 1) + sizeof(int));
@@ -250,6 +259,9 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
         store_length = *(int*)node; node += sizeof(int);
         memcpy(buffer, node, store_length + 1);
 
+        /* String comparison -> Keys processed */
+        keys_processed++;
+
         /* Return the node address if the string is found in node */
         if (strcmp(buffer, str) == 0) {
              
@@ -261,8 +273,6 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
             return prev;
         }
 
-        /* String comparison -> Keys processed */
-        keys_processed++;
 
         /* Go to next node of the linked list */
         node = *(char**)prev;
@@ -318,4 +328,66 @@ void freehash(hashtable_t *table) {
     /* Free the table data structure */
     free(table -> buckets);
     free(table);
+}
+
+
+
+/* Function that takes the hashtable_t* table, print toggle boolean and buffer 
+ * as input. The function counts the unique and non-unique strings and prints 
+ * the key values if chosen */
+void check_print(hashtable_t* table, bool print, char* buffer) {
+    char* bucket; char* curr; 
+
+    int tmp_length, tmp_counter; 
+
+    if (print) {
+        /* Iterate over all buckets to access array and print the keys */
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            bucket = table -> buckets[i];
+
+            while(bucket != NULL) {
+                /* Save current node and next node */
+
+                /* Print key address */
+                printf("key data belongs to address %p\n", bucket);
+
+                curr = bucket; curr += sizeof(char*);
+                bucket = *(char**)bucket;
+                
+                tmp_length = *(int*)curr; curr += sizeof(int);
+                memcpy(buffer, curr, tmp_length + 1); curr += tmp_length + 1;
+                tmp_counter = *(int*)curr;
+
+                /* Print key values */
+                printf("The string is %s\n", buffer);
+                printf("The string counter is %d\n", tmp_counter);
+
+                /* Updating measuring variables*/
+                unique_key_counter++;
+                non_unique_key_counter += tmp_counter;
+            }
+        }
+
+    } else {
+
+        /* Iterate over all buckets to access array and print the keys */
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            bucket = table -> buckets[i];
+
+            while(bucket != NULL) {
+                /* Save current node and next node */
+                curr = bucket; curr += sizeof(char*);
+                bucket = *(char**)bucket;
+                
+                tmp_length = *(int*)curr; curr += sizeof(int);
+                memcpy(buffer, curr, tmp_length + 1); curr += tmp_length + 1;
+                tmp_counter = *(int*)curr;
+
+                /* Updating measuring variables*/
+                unique_key_counter++;
+                non_unique_key_counter += tmp_counter;
+
+            }
+        }
+    }
 }
