@@ -25,6 +25,10 @@
 /* Parameter choice */
 #define TABLE_SIZE (1 << 18)
 #define INITIAL_ARR_SIZE 100
+/* Initial array size needs to be at least 2 * sizeof(size_t) to 
+ * store housekeeping variables */
+
+#define PRINT_TOGGLE 0
 
 
 
@@ -56,6 +60,8 @@ size_t get_initial_array_use(void);
 size_t skip_initial_parameters(char** array_ptr);
 
 
+/* Function prototypes for checking */
+void check_print(hashtable_t* table, bool print, char* buffer);
 
 /* Some information about this data structure: Note that the buckets 
  * of this hashtable store arrays. When the array becomes full, it is doubled */
@@ -149,15 +155,16 @@ int main(int argc, char** argv) {
     clock_gettime(CLOCK_MONOTONIC, &prec_end);
     elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
+    check_print(table, PRINT_TOGGLE, word);
 
     /* Measuring data */
-    printf("%d, NUX, Linked-Hash, non-unique strings\n", non_unique_key_counter);
-    printf("%.3f, INX, Linked-Hash, seconds to insert\n", elapsed1);
-    printf("%.3f, SRX, Linked-Hash, seconds to search\n", elapsed2);
-    printf("%zu, MUX, Linked-Hash, memory usage\n", memory_usage);
-    printf("%d, UKX, Linked-Hash, unique strings\n", unique_key_counter);
-    printf("%zu, KPX, Linked-Hash, keys processed\n", keys_processed);
-    printf("%d, NNX, Linked-Hash, number of nodes\n", number_of_nodes);
+    printf("%d, NUX, Array-hash, non-unique strings\n", non_unique_key_counter);
+    printf("%.3f, INX, Array-hash, seconds to insert\n", elapsed1);
+    printf("%.3f, SRX, Array-hash, seconds to search\n", elapsed2);
+    printf("%zu, MUX, Array-hash, memory usage\n", memory_usage);
+    printf("%d, UKX, Array-hash, unique strings\n", unique_key_counter);
+    printf("%zu, KPX, Array-hash, keys processed\n", keys_processed);
+    printf("%d, NNX, Array-hash, number of nodes\n", number_of_nodes);
 
     fclose(file);
     return 0;
@@ -229,20 +236,37 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
     /* Empty bucket */
     if (array == NULL) {
 
+        int tmp_length = strlen(str);
+        
         /* Create an array and store the address at the bucket */
         array = create_array();
         table -> buckets[index] = array;
+        
+        /* Keep doubling array if too small */
+        while((2 * sizeof(size_t)) + sizeof(int) + tmp_length + 1 + sizeof(int) >= 
+        *(size_t*)array) {
+
+            /* Double the array size, save the pointer to the correct bucket */
+            array = double_array(array);
+            table -> buckets[index] = array ;
+            
+            /* Move all elements of array into another array -> update keys processed */
+            keys_processed += 2 * sizeof(size_t);
+        }
+
+
+
 
         /* Store new key at start of array after housekeeping variables */ 
         tmp_ptr = array;
         tmp_ptr += 2 * sizeof(size_t);
-
-        int tmp_length = strlen(str);
         
         /* Store the key */
         *(int*)tmp_ptr = tmp_length; tmp_ptr += sizeof(int);
         memcpy(tmp_ptr, str, tmp_length + 1);
         *(int*)(tmp_ptr + tmp_length + 1) = 1;
+
+        keys_processed++;
 
         /* Update the current array use */
         *(size_t*)(array + sizeof(size_t)) = get_initial_array_use() + (sizeof(int) + tmp_length + 1 + sizeof(int));
@@ -266,9 +290,11 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             tmp_length = *(int*)tmp_ptr; tmp_ptr += sizeof(int);
             memcpy(buffer, tmp_ptr, tmp_length + 1);
 
+            /* String comparison -> Keys processed */
+            keys_processed++;
+
             /* If there is a string match, increment the string 
              * counter and end the function */
-
             if (strcmp(buffer, str) == 0) {
                 *(int*)(tmp_ptr + tmp_length + 1) += 1;
                 return;
@@ -288,11 +314,18 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
         /* Make sure current array size is large enough, double if not large enough 
          * and update table. The function also updates the tmp_ptr 
          * to point to the key insertion location */
+
+        /* Note that this function is a little slow, might as well quadruple it if we
+         * know doubling it isn't enough */
         while (offset + sizeof(int) + tmp_length + 1 + sizeof(int) >= array_size) {
 
             /* Double the array size, save the pointer to the correct bucket */
             array = double_array(array);
             table -> buckets[index] = array ;
+            
+            /* Move all elements of array into another array -> update keys processed */
+            keys_processed += array_use;
+
             array_size *= 2;
         }
 
@@ -303,14 +336,15 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
         *(int*)(tmp_ptr) = tmp_length; tmp_ptr += sizeof(int);
         memcpy(tmp_ptr, str, tmp_length + 1); tmp_ptr += tmp_length + 1;
         *(int*)tmp_ptr = 1;
+
+
+        /* New key stored -> keys processed */
+        keys_processed++;
  
         /* Update current array use */ 
         *(size_t*)(array + sizeof(size_t)) = array_use + (sizeof(int) + tmp_length + 1 + sizeof(int));
-
     }
 }
-
-
 
 
 
@@ -351,11 +385,13 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
              * key */
             if (strcmp(buffer, str) == 0) {
 
+                
                 /* Just for checking purposes */
                 //printf("The string to search is %s\n", str);
                 //printf("key data belongs to bucket address %p\n", array);
                 //printf("The string is %s\n", buffer);
                 //printf("The string counter is %d\n", *(int*)(tmp + tmp_length + 1));
+                
 
                 /* Return the address of the key (inside the array) */
                 return (tmp - sizeof(int));
@@ -449,4 +485,93 @@ size_t skip_initial_parameters(char** array_ptr) {
  * newly created array. */
 size_t get_initial_array_use(void) {
     return (2 * sizeof(size_t));
+}
+
+
+
+/* Function that takes the hashtable_t* table, print toggle boolean and buffer 
+ * as input. The function counts the unique and non-unique strings and prints 
+ * the key values if chosen */
+void check_print(hashtable_t* table, bool print, char* buffer) {
+    char* bucket;
+    size_t array_size, array_use;
+
+    size_t offset;
+
+    int tmp_length, tmp_counter; 
+
+    if (print) {
+        /* Iterate over all buckets to access array and print the keys */
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            bucket = table -> buckets[i];
+
+            /* If the bucket is not null, print the array elements */
+            if (bucket != NULL) {
+                array_size = *(size_t*)bucket; bucket += sizeof(size_t);
+                array_use = *(size_t*)bucket; bucket += sizeof(size_t);
+                offset = 2 * sizeof(size_t);
+
+                assert(array_use < array_size);
+
+                /* Print all keys from the array (connected to the bucket) */
+                while (offset < array_use) {
+
+                    /* Print key address */
+                    printf("key data belongs to bucket address %p\n", bucket);
+
+                    tmp_length = *(int*)(bucket); 
+                    bucket += sizeof(int); offset += sizeof(int);
+
+                    memcpy(buffer, bucket, tmp_length + 1);
+                    bucket += tmp_length + 1; offset += tmp_length + 1;
+
+                    tmp_counter = *(int*)bucket; 
+                    bucket += sizeof(int); offset += sizeof(int);
+
+                    /* Print key values */
+                    printf("The string is %s\n", buffer);
+                    printf("The string counter is %d\n", tmp_counter);
+
+                    /* Update measuring variables */
+                    unique_key_counter++;
+                    non_unique_key_counter += tmp_counter;
+                }
+            }
+        }
+
+    } else {
+
+        /* Iterate over all buckets to access array and print the keys */
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            bucket = table -> buckets[i];
+
+            /* If the bucket is not null, print the array elements */
+            if (bucket != NULL) {
+                array_size = *(size_t*)bucket; bucket += sizeof(size_t);
+                array_use = *(size_t*)bucket; bucket += sizeof(size_t);
+                offset = 2 * sizeof(size_t);
+
+                assert(array_use < array_size);
+
+                /* Print all keys from the array (connected to the bucket) */
+                while (offset < array_use) {
+
+                    tmp_length = *(int*)(bucket); 
+                    bucket += sizeof(int); offset += sizeof(int);
+
+                    memcpy(buffer, bucket, tmp_length + 1);
+                    bucket += tmp_length + 1; offset += tmp_length + 1;
+
+                    tmp_counter = *(int*)bucket; 
+                    bucket += sizeof(int); offset += sizeof(int);
+
+                    /* Update measuring variables */
+                    unique_key_counter++;
+                    non_unique_key_counter += tmp_counter;
+                }
+            }
+
+
+        }
+    }
 }
