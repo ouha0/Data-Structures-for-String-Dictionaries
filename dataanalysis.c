@@ -79,7 +79,8 @@ int main(int argc, char** argv) {
     /* Print data analysis of Wikipedia words */
     // Fix the printing format of this, this kinda looks ugly
     for (int i = 0; i < MAX_STRING_BYTES; i++) {
-        printf("There are %zu words of length %d\n", data_count[i], i);
+        // printf("There are %-7zu words of length %-2d\n", data_count[i], i);
+        printf("(%d, %zu)  ", i, data_count[i]);
     }
 
     return 0;
