@@ -77,7 +77,7 @@ size_t nonleaf_get_init_param_offset(void);
 char* get_next_leaf_node(char* node);
 int update_node_use(char* node, size_t new_size);
 size_t get_max_block_size(bool isleaf);
-size_t leaf_get_block_size(int str_length);
+size_t leaf_get_doubleblock_size(int str_length);
 size_t nonleaf_get_single_key_size(char* node);
 
 size_t leaf_skip_block_from_start(char** node_ptr, int index);
@@ -283,10 +283,13 @@ char* Bplus_split(char* parent, char* child, size_t parent_node_use, size_t chil
     char* mid_child_ptr = child;
     size_t mid_child_offset;
 
-    if (child_leaf)
+    if (child_leaf) {
         mid_child_offset = leaf_move_mid_node(&mid_child_ptr, child_node_use);
-    else
+        
+    } else {
         mid_child_offset = nonleaf_move_mid_node(&mid_child_ptr, child_node_use);
+
+    }
 
 
     /* Get information of middle key of child node */
@@ -1028,8 +1031,8 @@ size_t get_max_block_size(bool isleaf) {
 }
 
 /* Function that calculates the block size given the string length */
-size_t leaf_get_block_size(int str_length) {
-    return (sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*));
+size_t leaf_get_doubleblock_size(int str_length) {
+    return (sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*) + sizeof(char*));
 }
 
 /* Function that takes a leaf node as input. The function outputs the address of the consecutive leaf node */
