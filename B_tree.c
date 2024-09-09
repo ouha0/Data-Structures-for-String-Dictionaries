@@ -35,7 +35,7 @@
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 512
-#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
+#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
 

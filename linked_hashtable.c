@@ -25,8 +25,8 @@
 #define ALLOCATE_OVERHEAD 8
 
 /* Parameter choice */
-#define TABLE_SIZE (1 << 18)
-#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
+#define TABLE_SIZE (1 << 21)
+#define WORDS_NUM TEN_MILLION// Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
 

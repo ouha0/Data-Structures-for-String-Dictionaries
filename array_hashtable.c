@@ -22,8 +22,8 @@
 #define ALLOCATE_OVERHEAD 8
 
 /* Parameter choice */
-#define TABLE_SIZE (1 << 18)
-#define INITIAL_ARR_SIZE 100
+#define TABLE_SIZE (1 << 21)
+#define INITIAL_ARR_SIZE 150
 /* Initial array size needs to be at least 2 * sizeof(size_t) to 
  * store housekeeping variables */
 
@@ -31,7 +31,7 @@
 
 
 
-#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
+#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
 
@@ -157,6 +157,7 @@ int main(int argc, char** argv) {
     check_print(table, PRINT_TOGGLE, word);
 
     /* Measuring data */
+    printf("%d, TSX, Array-hash, table size\n", TABLE_SIZE);
     printf("%d, NUX, Array-hash, non-unique strings\n", non_unique_key_counter);
     printf("%.3f, INX, Array-hash, seconds to insert\n", elapsed1);
     printf("%.3f, SRX, Array-hash, seconds to search\n", elapsed2);

@@ -36,7 +36,7 @@
 /* Parameter choice */
 // #define T_DEGREE 10
 #define NODE_SIZE 512
-#define WORDS_NUM ONE_MILLION // Parameter to control how many words to get from text file 
+#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
 
@@ -56,6 +56,7 @@ void free_array_list(char** word_list);
 size_t leaf_move_mid_node(char** node_ptr, size_t node_use);
 size_t nonleaf_move_mid_node(char** node_ptr, size_t node_use);
 
+int custom_strcmp(char** str_ptr, const char* str, int key_str_length);
 
 /* Foundational Supplementary functions */
 size_t leaf_skip_single_key(char** node_ptr);
@@ -390,11 +391,16 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
 
     char tmp_word[MAX_STRING_BYTES + 1];
 
+    char* prev; int tmp_length;
 
     while(true) {
         node_use = get_node_use(node);
         tmp = node;
         flag = 1;
+
+
+        // For checking 
+
 
         /* If the node is a leaf, place the key in the correct position */
         if (node_is_leaf(node)) {
@@ -406,6 +412,8 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
 
             /* If initial leaf node is emtpy */
             if (node_use == INITIAL_LEAF_NODE_SIZE_USE) {
+
+
                 str_length = strlen(str);
                 block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*);
 
@@ -422,30 +430,41 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
                 
             } else { /* Initial leaf node is non-empty i.e. node_use > initial parameters (no need for extra pointer) */
 
-                /* Find the correct position in the node to insert the key */
-                if (((store = compare_current_string(tmp, tmp_word, str)) >= 0)) {
-                    flag = 0;
-                    if (store == 0) {
-                        /* Exit function after inserting string / updating */
-                        leaf_increment_block_counter(tmp);
-                        return POSITIVE;
+                while (true) {
+                    // Save previous pointer 
+                    prev = tmp;
+                    if (offset + sizeof(char*) == node_use) {
+                        break;
                     }
+
+                    /* Compare current key and move pointer to start of next block */
+                    tmp += sizeof(char*); 
+                    tmp_length = *(int*)tmp; 
+                    tmp += sizeof(int);
+
+                    /* Just checking */
+
+                    /* Compare string and update pointer */
+                    store = custom_strcmp(&tmp, str, tmp_length);
+
+                    /* Stop if current key is smaller than string to insert */
+                    if (store >= 0) {
+                        /* Increment counter if existing string */
+                        if (store == 0) {
+                            *(int*)tmp += 1;
+                            return POSITIVE;
+                        }
+                        break;
+
+                    /* Update offset only for next key and tmp pointer */
+                    } else {
+                        offset += sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int);
+                    }
+                    /* Move pointer past counter */
+                    tmp += sizeof(int);
                 }
-
-                /* Compare every second string, update counter if match. (pointer updated each time) */
-                if (flag) {
-                    /* Comparing every second string */
-                    while((store = leaf_compare_second_string_move(&tmp, node_use, &offset, tmp_word, str)) < 0) {
-                    }
-
-                    /* Repeating String */
-                    if (store == 0) {
-                        leaf_increment_block_counter(tmp);
-                        return POSITIVE;
-
-                    /* Found position to insert string */    
-                    }
-                }
+                /* Move to correct block position */
+                tmp = prev;
 
                 str_length = strlen(str);
 
@@ -470,6 +489,8 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
             /* New key inserted */
             unique_key_counter++;
             update_node_use(node, node_use + block_size);
+            
+
             break;
 
 
@@ -477,26 +498,49 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
         } else {
             // Note when equal, we move to the RHS of the matching key (hence also includes equality)
             // nonleaf_print_node_lexigraphic_check(node);
+            // nonleaf_print_node_lexigraphic_check(node);
+
 
             offset = nonleaf_skip_initial_parameters(&tmp);
 
-            if (((store = compare_current_string(tmp, tmp_word, str)) >= 0)) {
-                flag = 0;
-            }
 
-            /* Compare every second string, update counter if match. (pointer updated each time) */
-            if (flag) {
-                /* Comparing every second string */
-                while((store = nonleaf_compare_second_string_move(&tmp, node_use, &offset, tmp_word, str)) <= 0) {
-                    /* Repeating String */
+            while (true) {
+                // Save previous pointer 
+                prev = tmp;
+                if (offset + sizeof(char*) == node_use) {
+                    break;
+                }
+
+                /* Compare current key and move pointer to start of next block */
+                tmp += sizeof(char*); 
+                tmp_length = *(int*)tmp; tmp += sizeof(int);
+
+                /* Just checking */
+
+                /* Compare string and update pointer */
+                store = custom_strcmp(&tmp, str, tmp_length);
+
+                /* Stop if current key is smaller than string to insert */
+                if (store > 0) {
+                    break;
+
+                /* Update offset only for next key and tmp pointer */
+                } else {
+                    offset += sizeof(char*) + sizeof(int) + tmp_length + 1;
                 }
             }
+            /* Move to correct block position */
+            tmp = prev;
+                
 
             /* Get correct child pointer node */
             char* child = *(char**)tmp; 
-            
+            // printf("child address is %p\n", child);
+
             /* Split child node if it is full (we assume child node is leaf for safer split) */
-            if (get_node_use(child) + get_max_block_size(true) + 1 > NODE_SIZE) {
+
+            // size_t child_node_use;
+            if ((get_node_use(child)) + get_max_block_size(true) + 1 > NODE_SIZE) {
                 Bplus_split(node, child, tmp, offset);
 
                 /* Shift by one block is str is larger or equal to current key in parent */
@@ -566,6 +610,9 @@ int Bplus_search(char* root, char* word_store, const char* str) {
         curr_node_size = get_node_use(current); 
         tmp = current;
         flag = 1;
+
+
+        char* prev; int tmp_length, store;
         
         /* Depending on type of node, offsets are different */
 
@@ -578,44 +625,43 @@ int Bplus_search(char* root, char* word_store, const char* str) {
             /* Skip the initial parameters */
             offset = leaf_skip_initial_parameters(&tmp);
 
-            /* Find the correct position in the node to insert the key */
-            if (((store = compare_current_string(tmp, word_store, str)) >= 0)) {
-                /* If string smaller than current key, we can stop */
-                flag = 0;
-                /* String is found */
-                if (store == 0) {
-
-                    /* Just for testing */
-                    // printf("word to search is %s, word currently stored is %s. They should the same :) \n", str, word_store);
-                    return 1;
-
-                /* Otherwise string can't be found */
-                } else {
-                        printf("String %s not found for some reason, this shouldn't be the case\n", str);
-                    return 0;
+            while (true) {
+                // Save previous pointer 
+                prev = tmp;
+                if (offset + sizeof(char*) == curr_node_size) {
+                    break;
                 }
-            }
 
-            /* Compare every second string, update counter if match. (pointer updated each time) */
-            if (flag) {
-                /* Comparing every second string */
-                while((store = leaf_compare_second_string_move(&tmp, curr_node_size, &offset, word_store, str)) < 0) {
-                }
-                    /* String is found */
+                /* Compare current key and move pointer to start of next block */
+                tmp += sizeof(char*); 
+                tmp_length = *(int*)tmp; 
+                tmp += sizeof(int);
+
+                /* Just checking */
+
+                /* Compare string and update pointer */
+                store = custom_strcmp(&tmp, str, tmp_length);
+
+                /* Stop if current key is smaller than string to insert */
+                if (store >= 0) {
+                    /* Increment counter if existing string */
                     if (store == 0) {
-
-                        /* Just for testing */
                         // printf("word to search is %s, word currently stored is %s. They should the same :) \n", str, word_store);
                         return 1;
-
-                    /* Otherwise string can't be found */
                     } else {
                         printf("String %s not found for some reason, this shouldn't be the case\n", str);
                         return 0;
                     }
-
+                /* Update offset only for next key and tmp pointer */
+                } else {
+                    offset += sizeof(char*) + sizeof(int) + tmp_length + 1 + sizeof(int);
+                }
+                /* Move pointer past counter */
+                tmp += sizeof(int);
             }
-
+            /* Move to correct block position */
+            tmp = prev;
+            return 0;
 
         /* If node is not leaf */
         } else {
@@ -626,19 +672,33 @@ int Bplus_search(char* root, char* word_store, const char* str) {
             /* Skip the initial parameters */
             offset = nonleaf_skip_initial_parameters(&tmp);
 
-            if (((store = compare_current_string(tmp, word_store, str)) > 0)) {
-                flag = 0;
-            }
+            while (true) {
+                // Save previous pointer 
+                prev = tmp;
+                if (offset + sizeof(char*) == curr_node_size) {
+                    break;
+                }
 
-            /* Compare every second string, update counter if match. (pointer updated each time) */
-            if (flag) {
-                /* Comparing every second string */
-                while((store = nonleaf_compare_second_string_move(&tmp, curr_node_size, &offset, word_store, str)) <= 0) {
-                    /* Repeating String */
+                /* Compare current key and move pointer to start of next block */
+                tmp += sizeof(char*); 
+                tmp_length = *(int*)tmp; tmp += sizeof(int);
+
+                /* Just checking */
+
+                /* Compare string and update pointer */
+                store = custom_strcmp(&tmp, str, tmp_length);
+
+                /* Stop if current key is smaller than string to insert */
+                if (store > 0) {
+                    break;
+
+                /* Update offset only for next key and tmp pointer */
+                } else {
+                    offset += sizeof(char*) + sizeof(int) + tmp_length + 1;
                 }
             }
-            /* Move to child pointer */
-            current = *(char**)tmp;
+            /* Move to correct block position */
+            current = *(char**)prev;
         }
     }
     return 0;
@@ -1741,23 +1801,19 @@ void print_all_keys (char* mostleft_node) {
 /* Function that takes a ptr to a str (in a key) and string to compare as input. The funciton compares 
  * the relative lexigraphic size of the strings, and outputs the results. The function also moves the 
  * ptr to the string to the start of the next block */
-int custom_strcmp(char** str_ptr, const char* str) {
-
+inline int custom_strcmp(char** str_ptr, const char* str, int key_str_length) {
     /* String comparision between the two strings */
-    while(**str_ptr & (**str_ptr == *str)) {
+    while(**str_ptr && (**str_ptr == *str)) {
         (*str_ptr)++;
         str++;
+        key_str_length--;
     }
 
     /* Lexigraphic difference between the two strings */
     int difference = (unsigned char)(**str_ptr) - (unsigned char)(*str);
-
-    /* Move ptr past the end of the string */
-    while(**str_ptr) {
-        (*str_ptr)++;
-    } 
-    (*str_ptr)++;
-
+    *(str_ptr) += key_str_length + 1;
+    
+    keys_processed++;
     return difference;
 }
 

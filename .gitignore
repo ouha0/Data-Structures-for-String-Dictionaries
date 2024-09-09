@@ -1,4 +1,5 @@
 *.txt
 *.log
 test
-
+*.zsh
+*.dSYM
