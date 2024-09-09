@@ -19,8 +19,8 @@
 
 /* For convenience */
 #define INIT_PARAM_OFFSET 9 //Initial node maintainence parameter offset
-// #define NODE_MID_SIZE (INIT_PARAM_OFFSET + (NODE_SIZE - INIT_PARAM_OFFSET)/ 2.0)
-#define NODE_MID_SIZE (NODE_SIZE / 2.0)
+#define NODE_MID_SIZE (INIT_PARAM_OFFSET + (NODE_SIZE - INIT_PARAM_OFFSET)/ 2.0)
+// #define NODE_MID_SIZE (NODE_SIZE / 2.0)
 #define STR_SMALLER -1
 #define POSITIVE 10 // This is just any integer, so it returns something 
 #define ALLOCATE_OVERHEAD 8
@@ -43,7 +43,8 @@
 
 /* Main function prototypes */
 char* Bplus_create(void);
-char* Bplus_split(char* parent, char* child, char* child_location, size_t child_location_offset);
+char* Bplus_split(char* parent, char* child, size_t parent_node_use, size_t child_node_use,
+                  char* child_location, size_t child_location_offset);
 int Bplus_insert(char**, const char*);
 int Bplus_insert_nonfull(char*, const char*);
 int Bplus_search(char*, char*, const char*);
@@ -76,6 +77,7 @@ size_t nonleaf_get_init_param_offset(void);
 char* get_next_leaf_node(char* node);
 int update_node_use(char* node, size_t new_size);
 size_t get_max_block_size(bool isleaf);
+size_t leaf_get_block_size(int str_length);
 size_t nonleaf_get_single_key_size(char* node);
 
 size_t leaf_skip_block_from_start(char** node_ptr, int index);
@@ -264,25 +266,13 @@ char* Bplus_create(void) {
 
 /* Function that takes the parent node, child node and the location of the child node pointer in the parent node as input. 
  * The function performs the tree split operation. (Note that this is different B-tree split)  */
-char* Bplus_split(char* parent, char* child, char* child_location, size_t child_location_offset) {
+char* Bplus_split(char* parent, char* child, size_t parent_node_use, size_t child_node_use,
+                  char* child_location, size_t child_location_offset) {
 
-    size_t parent_node_use = get_node_use(parent);
-    size_t child_node_use = get_node_use(child);
+    //size_t parent_node_use = get_node_use(parent);
+    //size_t child_node_use = get_node_use(child);
     
     bool child_leaf = node_is_leaf(child);
-
-
-    ///* For checking */
-    //printf("Before node splits...\n");
-
-    //nonleaf_print_node_lexigraphic_check(parent);
-
-    //if (child_leaf) {
-    //    leaf_print_node_lexigraphic_check(child);
-    //} else {
-    //    nonleaf_print_node_lexigraphic_check(child);
-    //}
-
 
 
     /* Create child right node */
@@ -539,9 +529,9 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
 
             /* Split child node if it is full (we assume child node is leaf for safer split) */
 
-            // size_t child_node_use;
-            if ((get_node_use(child)) + get_max_block_size(true) + 1 > NODE_SIZE) {
-                Bplus_split(node, child, tmp, offset);
+            size_t child_node_use;
+            if ((child_node_use = get_node_use(child)) + get_max_block_size(true) + 1 > NODE_SIZE) {
+                Bplus_split(node, child, node_use, child_node_use, tmp, offset);
 
                 /* Shift by one block is str is larger or equal to current key in parent */
                 if ((store = compare_current_string(tmp, tmp_word, str)) <= 0) {
@@ -576,11 +566,14 @@ int Bplus_insert(char** root_ptr, const char* str) {
         /* Skip initial parameters, add new child pointer and update node size */
         tmp += nonleaf_get_init_param_offset();
         *(char**)tmp = prev_root; 
-        update_node_use(*root_ptr, nonleaf_get_init_param_offset() + sizeof(char*));
+
+        size_t root_node_use = nonleaf_get_init_param_offset() + sizeof(char*);
+        update_node_use(*root_ptr, root_node_use);
         *(tmp + sizeof(char*)) = '\0';
 
         /* Perform node split on previously full node and then insert node */  
-        Bplus_split(*root_ptr, prev_root, tmp, nonleaf_get_init_param_offset());
+        Bplus_split(*root_ptr, prev_root, root_node_use, prev_root_size, 
+                    tmp, nonleaf_get_init_param_offset());
         
         /* Now *root_ptr is not full */
         Bplus_insert_nonfull(*root_ptr, str);
@@ -1032,6 +1025,11 @@ size_t get_max_block_size(bool isleaf) {
         return (sizeof(int) + MAX_STRING_BYTES + 1 + sizeof(int) + sizeof(char*));
     else 
         return (sizeof(int) + MAX_STRING_BYTES + 1 + sizeof(char*));
+}
+
+/* Function that calculates the block size given the string length */
+size_t leaf_get_block_size(int str_length) {
+    return (sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*));
 }
 
 /* Function that takes a leaf node as input. The function outputs the address of the consecutive leaf node */
