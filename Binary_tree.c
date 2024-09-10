@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
         printf("Not enough words in txt file, only loaded %zu words\n", counter - 1);
     }
 
-    printf("Beginning binary tree word insertions\n");
+    printf("Beginning binary tree word insertions and searches\n");
     /* Insert the words into the binary tree */
 
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
@@ -126,10 +126,6 @@ int main(int argc, char** argv) {
     clock_gettime(CLOCK_MONOTONIC, &prec_end);
     elapsed1 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
-
-
-
-    printf("Beginning binary tree word_list searches\n");
     /* Search for the words in the binary tree */
 
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
@@ -144,9 +140,8 @@ int main(int argc, char** argv) {
 
 
     /* Printing all strings in order */
-    printf("Printing all Binary tree keys\n");
     binary_inorder(tree_root, word);
-    printf("\n\n");
+    printf("\n");
 
 
     /* Printing all the measuring variable data */
@@ -158,6 +153,7 @@ int main(int argc, char** argv) {
     printf("%d, UKX, B+-tree, unique strings\n", unique_key_counter);
     printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
     printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
+    printf("\n");
 
 
 

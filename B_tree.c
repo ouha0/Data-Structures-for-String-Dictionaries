@@ -196,7 +196,7 @@ int main(int argc, char** argv) {
     }
 
 
-    printf("Beginning B-tree insertions\n\n\n");
+    printf("Beginning B-tree insertion and search\n");
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i ++) {
         // printf("Word to insert in tree is %s\n", word_list[i]);
@@ -204,10 +204,6 @@ int main(int argc, char** argv) {
     }
     clock_gettime(CLOCK_MONOTONIC, &prec_end);
     elapsed1 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
-
-    
-
-    printf("Beginning B-tree word_list searches\n\n\n");
     /* Search for the words in the binary tree */
 
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
@@ -239,6 +235,7 @@ int main(int argc, char** argv) {
     printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
     printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
     printf("%lf, NRX, B+-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
+    printf("\n");
 
 
     //printf("\n\n\n");

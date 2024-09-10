@@ -13,9 +13,10 @@
 #define TEN_MILLION 10000000
 #define HUNDRED_MILLION 100000000
 
-#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
-#define FILENAME "wordstream.txt"
+#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
+// #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
+#define FILENAME "wikicap_without_common.txt"
 
 /* Global Variables */
 #define MAX_STRING_BYTES 64

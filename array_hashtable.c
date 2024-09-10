@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
 
     hashtable_t *table = create_hashtable(TABLE_SIZE);
 
-    printf("Beginning Array-hash insertions\n\n\n");
+    printf("Beginning Array-hash insertion and search\n");
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i ++) {
         // printf("Word to insert in tree is %s\n", word_list[i]);
@@ -143,8 +143,6 @@ int main(int argc, char** argv) {
     clock_gettime(CLOCK_MONOTONIC, &prec_end);
     elapsed1 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
-
-    printf("Beginning Array-hash word_list searches\n\n\n");
     /* Search for the words in the binary tree */
 
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
@@ -165,6 +163,7 @@ int main(int argc, char** argv) {
     printf("%d, UKX, Array-hash, unique strings\n", unique_key_counter);
     printf("%zu, KPX, Array-hash, keys processed\n", keys_processed);
     printf("%d, NNX, Array-hash, number of nodes\n", number_of_nodes);
+    printf("\n");
 
     fclose(file);
     return 0;

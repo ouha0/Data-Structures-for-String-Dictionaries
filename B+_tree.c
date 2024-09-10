@@ -35,7 +35,7 @@
 
 /* Parameter choice */
 // #define T_DEGREE 10
-#define NODE_SIZE 512
+#define NODE_SIZE 1028
 #define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
@@ -224,6 +224,7 @@ int main(int argc, char** argv) {
     printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
     printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
     printf("%lf, NRX, B+-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
+    printf("\n");
 
 
     //printf("\n\n\n");
