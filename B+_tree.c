@@ -35,11 +35,11 @@
 
 /* Parameter choice */
 // #define T_DEGREE 10
-#define NODE_SIZE 1028
+#define NODE_SIZE 512
 #define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
-
+#define WITHOUT_COMMON "wikicap_without_common.txt"
 
 /* Main function prototypes */
 char* Bplus_create(void);
@@ -126,6 +126,7 @@ static int non_unique_key_counter = 0;
 static size_t keys_processed = 0;
 static int number_of_nodes = 0;
 static double avg_node_use_ratio = 0;
+static int tree_depth = 0;
 
 int main(int argc, char** argv) {
     
@@ -149,7 +150,7 @@ int main(int argc, char** argv) {
     double elapsed1, elapsed2;
 
 
-    file = fopen(FILENAME, "r");
+    file = fopen(WITHOUT_COMMON, "r");
     if (file == NULL) {
         fprintf(stderr, "Error opening file\n");
         return 1;
@@ -158,7 +159,6 @@ int main(int argc, char** argv) {
     /* Initialize tree */
     char* tree_root = Bplus_create();
     
-
     /* Insert all words into word_list  */
     while(fscanf(file, "%s", word) == 1) {
 
@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
     char* left_most = left_most_node(tree_root);
     print_all_keys(left_most);
 
-
+    printf("B+-tree of depth %d:\n", tree_depth);
     printf("%d, SZX, B+-tree, node size parameter\n", NODE_SIZE);
     printf("%d, NUX, B+-tree, non-unique strings\n", non_unique_key_counter);
     printf("%.3f, INX, B+-tree, seconds to insert\n", elapsed1);
@@ -1720,10 +1720,12 @@ void free_array_list(char** word_list) {
 
 /* Function that returns the left most leaf node in the B+ tree */
 char* left_most_node(char* root) {
+    
     char* current = root;
 
     while ((current != NULL) & (!node_is_leaf(current))) {
         current = *(char**)(current + nonleaf_get_init_param_offset());
+        tree_depth++;
     }
 
     return current;

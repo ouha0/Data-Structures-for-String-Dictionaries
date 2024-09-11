@@ -81,7 +81,7 @@ static int number_of_nodes = 0;
 int main(int argc, char** argv) {
     
     FILE* file;
-    char word[100]; size_t counter = 1;
+    char word[200]; size_t counter = 1;
     int str_length; int flag = 0;
     
     // char word_list[WORDS_NUM][MAX_STRING_BYTES];
@@ -254,8 +254,6 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
         }
 
 
-
-
         /* Store new key at start of array after housekeeping variables */ 
         tmp_ptr = array;
         tmp_ptr += 2 * sizeof(size_t);
@@ -280,6 +278,7 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
         size_t array_use = *(size_t*)tmp_ptr; tmp_ptr += sizeof(size_t);
         offset = 2 * sizeof(size_t);
 
+        size_t key_size;
 
         
         int tmp_length, tmp_counter;
@@ -293,9 +292,20 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             keys_processed++;
 
             /* If there is a string match, increment the string 
-             * counter and end the function */
+             * counter and end the function. Also implement move to front 
+             * strategy */
             if (strcmp(buffer, str) == 0) {
                 *(int*)(tmp_ptr + tmp_length + 1) += 1;
+            
+                /* Implement MTF */
+                /* Get key size, copy key to buffer, shift the memory,
+                 * move the key to the start */
+                key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
+                memcpy(buffer, tmp_ptr - sizeof(int), key_size); 
+                memmove(array + 2 * sizeof(size_t) + key_size,
+                        array + 2 * sizeof(size_t), offset - 2 * sizeof(size_t));
+                memcpy(array + 2 * sizeof(size_t), buffer, key_size);
+
                 return;
             }
 
@@ -327,15 +337,17 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
 
             array_size *= 2;
         }
-
-        /* Move the tmp pointer to the correct offset position */
-        tmp_ptr = array + offset;
         
-        /* Insert the key data at the end of the array */
-        *(int*)(tmp_ptr) = tmp_length; tmp_ptr += sizeof(int);
+        /* Insert the new element at the start: Implementing MTF strategy  */
+        /* Get key size and update temporary pointer */
+        key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
+        tmp_ptr = array + 2 * sizeof(size_t);
+
+        /* Shift the array to the right to fit the new key*/
+        memmove(tmp_ptr + key_size, tmp_ptr, offset - 2 * sizeof(size_t));
+        *(int*)tmp_ptr = tmp_length; tmp_ptr += sizeof(int);
         memcpy(tmp_ptr, str, tmp_length + 1); tmp_ptr += tmp_length + 1;
         *(int*)tmp_ptr = 1;
-
 
         /* New key stored -> keys processed */
         keys_processed++;
@@ -391,6 +403,13 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
                 //printf("The string is %s\n", buffer);
                 //printf("The string counter is %d\n", *(int*)(tmp + tmp_length + 1));
                 
+                /* Implement MTF strategy */
+                /* Move the key found to the start of the array */
+                size_t key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
+                memcpy(buffer, tmp - sizeof(int), key_size); 
+                memmove(array + 2 * sizeof(size_t) + key_size,
+                        array + 2 * sizeof(size_t), offset - 2 * sizeof(size_t));
+                memcpy(array + 2 * sizeof(size_t), buffer, key_size);
 
                 /* Return the address of the key (inside the array) */
                 return (tmp - sizeof(int));

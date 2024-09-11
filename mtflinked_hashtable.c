@@ -25,7 +25,7 @@
 #define ALLOCATE_OVERHEAD 8
 
 /* Parameter choice */
-#define TABLE_SIZE (1 <<12)
+#define TABLE_SIZE (1 << 12)
 #define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
 // #define FILENAME "wordstream.txt"
 #define FILENAME "wikipedia_with_cap.txt"
@@ -62,6 +62,12 @@ static int non_unique_key_counter = 0;
 static size_t keys_processed = 0;
 static int number_of_nodes = 0;
 static double avg_node_use_ratio = 0;
+
+
+
+/* Note that for this algorithm, move to front strategy has been implemented 
+ * for both insertion and search. The node is always inserted at the beginning
+ * and if a query if found, the node is moved to the start. */
 
 int main(int argc, char** argv) {
     
@@ -196,7 +202,9 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
     unsigned int index = xorhash(str, TABLE_SIZE);
 
     /* Get the address of the linked list head */
-    char* node = table -> buckets[index];
+    char* initial = table -> buckets[index];
+
+    char* node = initial;
 
     /* Empty bucket */
     if (node == NULL) {
@@ -208,11 +216,16 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
         char* next;
         int store_length, store_counter;
         /* FInd the correct position to insert the new key */
-        char* prev;
+        char* node_start = NULL;
+        char* prev_node;
+        
 
         while (node != NULL) {
             /* Store address of previous node */
-            prev = node;
+            prev_node = node_start;
+            
+            /* Keep track of current node start */
+            node_start = node;
 
             /* Get key data of the node */
             node += sizeof(char*); 
@@ -221,20 +234,37 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             store_length = *(int*)node; node += sizeof(int); 
             memcpy(buffer, node, store_length + 1);
 
-            /* If the string to insert is the same as linked list, increase the counter */
+            /* If the string to insert is the same as linked list, 
+             * increase the counter. Also implement MTF */
             if (strcmp(buffer, str) == 0) {
                 *(int*)(node + store_length + 1) += 1;
+
+                /* Move the current node to the start of the bucket. Update
+                 * linked list */
+                /* If accessed node is not the first node */
+                if (prev_node != NULL) {
+                    *(char**)prev_node = *(char**)node_start; // Update next pointer of previous node 
+                    *(char**)node_start = initial;
+                    table -> buckets[index] = node_start;
+                }
+
                 return;
             }
             /* String comparison -> keys processed++ */
             keys_processed++;
             
             /* Go to next node */
-            node = *(char**)(prev);
+            node = *(char**)(node_start);
         }
+
         
-        /* If the key currently isn't present in the bucket, create a new node and insert it at the end */
-        *(char**)prev = create_node(str); 
+        /* If the key currently isn't present in the bucket, create a new node and
+         * insert at the start. Update the pointers accordinly */
+        node = create_node(str);
+        *(char**)node = initial;
+        table -> buckets[index] = node;
+
+        // *(char**)node_start = create_node(str); 
     }
 
 }
@@ -245,14 +275,18 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
     unsigned int index = xorhash(str, TABLE_SIZE);
 
     /* Get the address of the node from the bucket */
-    char* node = table -> buckets[index];
-    char* next, *prev;
+    char* initial = table -> buckets[index];
+    char* node = initial;
 
+    char* next, *node_start = NULL;
+    char* prev_node;
     int store_length;
     
     /* Linear search along the nodes corresponding to the bucket to find the key */
     while (node != NULL) {
-        prev = node;
+        prev_node = node_start;
+
+        node_start = node;
 
         node += sizeof(char*);
         
@@ -270,16 +304,24 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
            // printf("Node data address %p ...\n", prev);
            // printf("The string is %s\n", buffer);
            // printf("The string counter is %d\n", *(int*)(node + store_length + 1));
-            return prev;
+            
+            /* If accessed node is not the first node, implement move to front */
+            if (prev_node != NULL) {
+                *(char**)prev_node = *(char**)node_start;
+                *(char**)node_start = initial;
+                table -> buckets[index] = node_start;
+            }
+            
+            return node_start;
         }
 
 
         /* Go to next node of the linked list */
-        node = *(char**)prev;
+        node = *(char**)node_start;
     }
 
     /* Otherwise the string is not found, return 0*/
-    printf("The string is not found!\n");
+    printf("The string %s is not found!\n", str);
     assert(0);
     return NULL;
 }
