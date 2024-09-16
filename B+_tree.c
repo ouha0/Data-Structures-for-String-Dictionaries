@@ -359,10 +359,10 @@ char* Bplus_split(char* parent, char* child, size_t parent_node_use, size_t chil
 /* Function that takes a non-full node, creates a new key, and 
  * inserts it in the correct position */
 int Bplus_insert_nonfull(char* node, const char* str) {;
-    size_t node_use, offset, block_size;
-    int str_length, store, flag;
+    size_t node_use, offset, block_size, child_node_use;
+    int str_length, store;
     
-    char* tmp;
+    char* tmp, *child;
 
     char tmp_word[MAX_STRING_BYTES + 1];
 
@@ -371,7 +371,6 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
     while(true) {
         node_use = get_node_use(node);
         tmp = node;
-        flag = 1;
 
 
         // For checking 
@@ -509,7 +508,7 @@ int Bplus_insert_nonfull(char* node, const char* str) {;
                 
 
             /* Get correct child pointer node */
-            char* child = *(char**)tmp; 
+            child = *(char**)tmp; 
             // printf("child address is %p\n", child);
 
             /* Split child node if it is full (we assume child node is leaf for safer split) */
@@ -579,19 +578,16 @@ int Bplus_insert(char** root_ptr, const char* str) {
 int Bplus_search(char* root, char* word_store, const char* str) {
     
     char* current = root; size_t curr_node_size; bool is_leaf;
-    int store, flag;
+    int store;
     char* tmp; 
     size_t offset;
+    char* prev; int tmp_length;
 
     while (current != NULL) {
         /* Get important properties of the node first */
         curr_node_size = get_node_use(current); 
         tmp = current;
-        flag = 1;
 
-
-        char* prev; int tmp_length, store;
-        
         /* Depending on type of node, offsets are different */
 
         /* If node is a leaf */
