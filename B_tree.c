@@ -41,7 +41,8 @@
 
 /* Function Prototypes(main) */
 char* B_tree_create(void);
-int B_tree_split_child(char*, char*);
+int B_tree_split_child(char* node_x, char* node_y, size_t x_node_use, size_t y_node_use, 
+                       char* node_y_location, size_t node_y_offset);
 int B_tree_insert(char**, const char*);
 int B_tree_insert_nonfull(char*, const char*, size_t);
 int B_tree_search(char*, char*, const char*);
@@ -321,11 +322,12 @@ int B_tree_search(char* node, char* array_store, const char* str) {
  * is not full */
 
 // Node_x is the root, node_y is the child
-int B_tree_split_child(char* node_x, char* node_y) {
+int B_tree_split_child(char* node_x, char* node_y, size_t x_node_use, size_t y_node_use, 
+                       char* node_y_location, size_t node_y_offset) {
 
     /* Original nodes */
-    size_t x_node_use = get_node_use(node_x);
-    size_t y_node_use = get_node_use(node_y);
+   // size_t x_node_use = get_node_use(node_x);
+   // size_t y_node_use = get_node_use(node_y);
 
 
     /* Create new child node z (sibling of y). Note that node_x is the parent node. node_y and node_z are the child nodes */
@@ -348,30 +350,32 @@ int B_tree_split_child(char* node_x, char* node_y) {
 
     /* Move tmp_x ptr to node_y child address */
     /* Insert middle key of y into x, and shift all blocks of node_x to the right */
-    char* tmp_x = node_x;
-    size_t key_offset = move_ptr_to_ptr(&tmp_x, node_y) + sizeof(char*); // Go past node_y address in x, to store middle key
+    // char* tmp_x = node_x;
+    size_t key_offset = node_y_offset + sizeof(char*); // Go past node_y address in x, to store middle key
 
     /* Making sure that the pointer finds the correct child node */
     // assert(*(char**)tmp_x == node_y);
 
 
     /* Refer to Cormen: Move W onwards and leave space for ptr, S, ptr */
-    memmove(tmp_x + insertion_offset, tmp_x + sizeof(char*), x_node_use + 1 - key_offset);
+    memmove(node_y_location + insertion_offset, node_y_location + sizeof(char*), x_node_use + 1 - key_offset);
+    node_y_location += sizeof(char*); 
 
     // Store key from y to x  
-    tmp_x += sizeof(char*); *(int*)tmp_x = tmp_length; // printf("length is %d, should be %d\n", *(int*)(tmp_x), tmp_length);
-    tmp_x += sizeof(int); //skip first ptr, key, second pointer // Not supposed to be here I think
-    memcpy(tmp_x, mid_ptr + sizeof(int), tmp_length + 1);
-    tmp_x += tmp_length + 1; 
-    *(int*)tmp_x = *(int*)(mid_ptr + sizeof(int) + tmp_length + 1); 
-    tmp_x += sizeof(int); // skip counter
+    *(int*)node_y_location= tmp_length; node_y_location += sizeof(int); //skip first ptr, key, second pointer // Not supposed to be here I think
+    
+
+    memcpy(node_y_location, mid_ptr + sizeof(int), tmp_length + 1); node_y_location += tmp_length + 1; 
+
+    *(int*)node_y_location = *(int*)(mid_ptr + sizeof(int) + tmp_length + 1); 
+    node_y_location += sizeof(int); // skip counter
     
 
     /* Storing child_z ptr into node_x */
-    *(char**)tmp_x = child_z;
+    *(char**)node_y_location = child_z;
     
     /* Delete middle key in y and move RHS keys to child_z */
-    *mid_ptr = '\0'; // not sure if needed 
+    // *mid_ptr = '\0'; // not sure if needed 
 
     mid_ptr += key_size; y_mid_offset += key_size;
 
@@ -408,18 +412,21 @@ int B_tree_insert(char** root_ptr, const char* str) {
         char* s = initialize_node(false, NODE_SIZE);
         *root_ptr = s; // The new node becomes the new root
         char* tmp = s;
-        skip_initial_parameters(&tmp);
+
+        tmp += get_init_param_offset();
 
         /* S is the new root. First child ptr is node */
         *(char**)tmp = prev_root;
         
-        update_node_use(s, INITIAL_NODE_SIZE_USE + sizeof(char*));
+        size_t root_node_use = get_init_param_offset() + sizeof(char*);
+        update_node_use(s, root_node_use);
 
         *(tmp + sizeof(char*)) = '\0'; //Set null-byte at end of new node 
         
         /* Just checking */
         // assert(get_node_use(prev_root) >= NODE_SIZE / 2);
-        B_tree_split_child(s, prev_root);
+        B_tree_split_child(s, prev_root, root_node_use, prev_root_node_use, 
+                           tmp, get_init_param_offset());
 
         // assert(get_node_use(s) != 17);
         B_tree_insert_nonfull(s, str, get_node_use(s));
@@ -534,13 +541,14 @@ int B_tree_insert_nonfull(char* node, const char* str, size_t node_use) {
 
     } else {
         
-        char* child = get_child_node(tmp);
+        char* child = *(char**)tmp;
         
+        size_t child_node_use;
         /* Split the child node if full after inserting key */
-        if (get_node_use(child) + get_max_block_size() + 1 > NODE_SIZE) {
+        if ((child_node_use = get_node_use(child)) + get_max_block_size() + 1 > NODE_SIZE) {
 
             /* Just a check */
-            B_tree_split_child(node, child);
+            B_tree_split_child(node, child, node_use, child_node_use, tmp, offset);
 
             /* If str is larger or equal than current key in parent, increment counter or shift tmp 
              * by one block */
