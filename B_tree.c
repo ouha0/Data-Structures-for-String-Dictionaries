@@ -25,7 +25,6 @@
 #define ALLOCATE_OVERHEAD 8
 
 #define PRINT_TOGGLE 0
-#define CHECK_TOGGLE 1
 #define ONE_MILLION 1000000
 #define TEN_MILLION 10000000
 #define HUNDRED_MILLION 100000000
@@ -132,7 +131,8 @@ void print_current_block_address(char* node);
 
 static size_t memory_usage = 0;
 static int unique_key_counter = 0;
-static int non_unique_key_counter = 0;
+static int non_unique_key_counter_from_data = 0;
+static int non_unique_key_counter_from_tree = 0;
 static size_t keys_processed = 0;
 static int number_of_nodes = 0;
 static double avg_node_use_ratio = 0;
@@ -223,18 +223,19 @@ int main(int argc, char** argv) {
     /* Print word list array */
     // print_word_array(word_list, counter);
 
-    if (CHECK_TOGGLE) 
-        B_tree_check(tree_root);
+    // B_tree_check(tree_root);
+    print_B_tree(tree_root, word);
 
-    printf("%d, SZX, B+-tree, node size parameter\n", NODE_SIZE);
-    printf("%d, NUX, B+-tree, non-unique strings\n", non_unique_key_counter);
-    printf("%.3f, INX, B+-tree, seconds to insert\n", elapsed1);
-    printf("%.3f, SRX, B+-tree, seconds to search\n", elapsed2);
-    printf("%zu, MUX, B+-tree, memory usage\n", memory_usage);
-    printf("%d, UKX, B+-tree, unique strings\n", unique_key_counter);
-    printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
-    printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
-    printf("%lf, NRX, B+-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
+    printf("%d, SZX, B-tree, node size parameter\n", NODE_SIZE);
+    printf("%d, NUX, B-tree, non-unique strings from data \n", non_unique_key_counter_from_data);
+    printf("%d, NUX, B-tree, non-unique strings from tree \n", non_unique_key_counter_from_tree);
+    printf("%.3f, INX, B-tree, seconds to insert\n", elapsed1);
+    printf("%.3f, SRX, B-tree, seconds to search\n", elapsed2);
+    printf("%zu, MUX, B-tree, memory usage\n", memory_usage);
+    printf("%d, UKX, B-tree, unique strings\n", unique_key_counter);
+    printf("%zu, KPX, B-tree, keys processed\n", keys_processed);
+    printf("%d, NNX, B-tree, number of nodes\n", number_of_nodes);
+    printf("%lf, NRX, B-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
     printf("\n");
 
 
@@ -428,6 +429,8 @@ int B_tree_insert(char** root_ptr, const char* str) {
         // assert(get_node_use(*root_ptr) != 17);
         B_tree_insert_nonfull(*root_ptr, str, prev_root_node_use);
     }
+
+    non_unique_key_counter_from_data++;
 
     return 1;
 }
@@ -1531,6 +1534,9 @@ void print_B_tree(char* root, char* word) {
     if (root == NULL) 
         return;
     
+    /* For average node fill ratio */
+    print_node_use_ratio(root);
+
     /* Recurse and print all child ptr nodes */
     char* ptr = root; int tmp_length, tmp_counter;
     size_t offset = skip_initial_parameters(&ptr);
@@ -1561,7 +1567,7 @@ void print_B_tree(char* root, char* word) {
 
         /* The counter includes duplicate strings. Update non-unique key counter for string insertion check */
         tmp_counter = *(int*)(ptr); 
-        non_unique_key_counter += tmp_counter;
+        non_unique_key_counter_from_tree += tmp_counter;
 
         ptr += sizeof(int); offset += sizeof(int);
 

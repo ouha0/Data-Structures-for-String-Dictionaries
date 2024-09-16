@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
     }
 
 
-    printf("Beginning B+-tree insertions\n\n\n");
+    printf("Beginning B+-tree insertion and search\n");
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i ++) {
         // printf("Word to insert in tree is %s\n", word_list[i]);
@@ -196,9 +196,7 @@ int main(int argc, char** argv) {
     elapsed1 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
 
-    printf("Beginning B+-tree word_list searches\n\n\n");
     /* Search for the words in the binary tree */
-
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i++) {
         if(!Bplus_search(tree_root, word, word_list[i])) {
@@ -225,21 +223,6 @@ int main(int argc, char** argv) {
     printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
     printf("%lf, NRX, B+-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
     printf("\n");
-
-
-    //printf("\n\n\n");
-    //printf("For B-tree with node size %d:\n", NODE_SIZE);
-    //printf("There are %d non-unique strings in the B-tree, there should be %zu non-unique strings (inserted strings)\n",
-    //       non_unique_key_counter, counter - 1);
-    //printf("Inserting %zu non-unique strings took %.3f seconds. Searching all the strings took %.3f seconds\n", counter - 1, elapsed1, elapsed2);
-    //printf("The total memory usage was %zu bytes\n", memory_usage);
-    //printf("There are %d unique keys in the B-tree\n", unique_key_counter);
-    //printf("%zu keys were processed\n", keys_processed);
-    //printf("There are %d nodes in the B-tree\n", number_of_nodes);
-    //
-    //if (CHECK_TOGGLE) {
-    //    printf("The average node fill ratio is %lf\n", avg_node_use_ratio / number_of_nodes);
-    //}
 
 
     printf("Cleaning up memory...\n");
@@ -286,10 +269,8 @@ char* Bplus_split(char* parent, char* child, size_t parent_node_use, size_t chil
 
     if (child_leaf) {
         mid_child_offset = leaf_move_mid_node(&mid_child_ptr, child_node_use);
-        
     } else {
         mid_child_offset = nonleaf_move_mid_node(&mid_child_ptr, child_node_use);
-
     }
 
 
