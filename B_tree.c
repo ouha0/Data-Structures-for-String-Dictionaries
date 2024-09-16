@@ -9,6 +9,19 @@
 #include <math.h>
 #include <assert.h>
 
+#ifndef NODE_SIZE
+#define NODE_SIZE 300 // Default node size
+#endif
+
+#ifndef DATASET_TYPE
+#define DATASET_TYPE 1  // Default dataset type
+#endif
+
+#ifndef WORDS_NUM
+#define WORDS_NUM 1000000  // Default dataset type
+#endif
+
+
 /* Global Variables */
 #define MAX_STRING_BYTES 64
 #define DOUBLE_SIZE 2
@@ -33,9 +46,8 @@
 
 /* Parameter choice */
 // #define T_DEGREE 10
-#define NODE_SIZE 512
-#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
-#define FILENAME "wordstream.txt"
+// #define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
+// #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
 
 
@@ -162,8 +174,17 @@ int main(int argc, char** argv) {
     struct timespec prec_start, prec_end;
     double elapsed1, elapsed2;
 
+    /* Read file depending on dataset type */
+    if (DATASET_TYPE == 1) { // Unique words
+        file = fopen("wordstream.txt", "r");
+    } else if (DATASET_TYPE == 2) { // Wikipedia 
+        file = fopen("wikipedia_with_cap.txt", "r");
+    } else { // Wikipedia without common function words
+        assert(DATASET_TYPE == 3); 
+        file = fopen("wikicap_without_common.txt", "r");
+    }
 
-    file = fopen(FILENAME, "r");
+    /* Make sure file opened properly */
     if (file == NULL) {
         fprintf(stderr, "Error opening file\n");
         return 1;
@@ -230,6 +251,7 @@ int main(int argc, char** argv) {
     // B_tree_check(tree_root);
     print_B_tree(tree_root, word);
 
+    printf("%d, DSX, B-tree, dataset type\n", DATASET_TYPE);
     printf("%d, SZX, B-tree, node size parameter\n", NODE_SIZE);
     printf("%d, NUX, B-tree, non-unique strings from data \n", non_unique_key_counter_from_data);
     printf("%d, NUX, B-tree, non-unique strings from tree \n", non_unique_key_counter_from_tree);

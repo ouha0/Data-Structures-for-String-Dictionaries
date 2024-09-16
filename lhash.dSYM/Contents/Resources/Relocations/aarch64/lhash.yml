@@ -36,8 +36,8 @@ relocations:
   - { offsetInCU: 0x482, offset: 0x482, size: 0x8, addend: 0x0, symName: _create_hashtable, symObjAddr: 0xA44, symBinAddr: 0x1000021D4, symSize: 0x100 }
   - { offsetInCU: 0x4B8, offset: 0x4B8, size: 0x8, addend: 0x0, symName: _hash_insert, symObjAddr: 0xB44, symBinAddr: 0x1000022D4, symSize: 0x394 }
   - { offsetInCU: 0x55D, offset: 0x55D, size: 0x8, addend: 0x0, symName: _get_hash, symObjAddr: 0xED8, symBinAddr: 0x100002668, symSize: 0x224 }
-  - { offsetInCU: 0x5E7, offset: 0x5E7, size: 0x8, addend: 0x0, symName: _check_print, symObjAddr: 0x10FC, symBinAddr: 0x10000288C, symSize: 0x54C }
-  - { offsetInCU: 0x6A3, offset: 0x6A3, size: 0x8, addend: 0x0, symName: _create_node, symObjAddr: 0x1648, symBinAddr: 0x100002DD8, symSize: 0x220 }
-  - { offsetInCU: 0x6F5, offset: 0x6F5, size: 0x8, addend: 0x0, symName: _xorhash, symObjAddr: 0x1868, symBinAddr: 0x100002FF8, symSize: 0x100 }
-  - { offsetInCU: 0x74C, offset: 0x74C, size: 0x8, addend: 0x0, symName: _freehash, symObjAddr: 0x1968, symBinAddr: 0x1000030F8, symSize: 0x204 }
+  - { offsetInCU: 0x5F0, offset: 0x5F0, size: 0x8, addend: 0x0, symName: _check_print, symObjAddr: 0x10FC, symBinAddr: 0x10000288C, symSize: 0x54C }
+  - { offsetInCU: 0x6AC, offset: 0x6AC, size: 0x8, addend: 0x0, symName: _create_node, symObjAddr: 0x1648, symBinAddr: 0x100002DD8, symSize: 0x220 }
+  - { offsetInCU: 0x6FE, offset: 0x6FE, size: 0x8, addend: 0x0, symName: _xorhash, symObjAddr: 0x1868, symBinAddr: 0x100002FF8, symSize: 0x100 }
+  - { offsetInCU: 0x755, offset: 0x755, size: 0x8, addend: 0x0, symName: _freehash, symObjAddr: 0x1968, symBinAddr: 0x1000030F8, symSize: 0x204 }
 ...

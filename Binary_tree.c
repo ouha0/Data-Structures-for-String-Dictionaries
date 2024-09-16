@@ -9,6 +9,15 @@
 #include <math.h>
 #include <assert.h>
 
+
+#ifndef DATASET_TYPE
+#define DATASET_TYPE 1  // Default dataset type
+#endif
+
+#ifndef WORDS_NUM
+#define WORDS_NUM 1000000  // Default dataset type
+#endif
+
 /* Global Variables */
 #define MAX_STRING_BYTES 64
 
@@ -20,7 +29,7 @@
 #define INITIAL_COUNT 1
 #define ALLOCATE_OVERHEAD 8
 
-#define FILENAME "wordstream.txt"
+// #define FILENAME "wordstream.txt"
 // #define FILENAME "wikipedia_with_cap.txt"
 
 #define PRINT_TOGGLE 0
@@ -30,7 +39,7 @@
 #define HUNDRED_MILLION 100000000
 
 /* Data Volume */
-#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
+//#define WORDS_NUM TEN_MILLION // Parameter to control how many words to get from text file 
 
 /* PROBLEMS */
 
@@ -84,7 +93,16 @@ int main(int argc, char** argv) {
     
 
 
-    file = fopen(FILENAME, "r");
+    /* Read file depending on dataset type */
+    if (DATASET_TYPE == 1) { // Unique words
+        file = fopen("wordstream.txt", "r");
+    } else if (DATASET_TYPE == 2) { // Wikipedia 
+        file = fopen("wikipedia_with_cap.txt", "r");
+    } else { // Wikipedia without common function words
+        assert(DATASET_TYPE == 3); 
+        file = fopen("wikicap_without_common.txt", "r");
+    }
+
     if (file == NULL) {
         fprintf(stderr, "Error opening file\n");
         return 1;

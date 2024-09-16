@@ -43,14 +43,14 @@ relocations:
   - { offsetInCU: 0x428, offset: 0x428, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100000AEC, symSize: 0xA64 }
   - { offsetInCU: 0x54A, offset: 0x54A, size: 0x8, addend: 0x0, symName: _create_hashtable, symObjAddr: 0xA64, symBinAddr: 0x100001550, symSize: 0x12C }
   - { offsetInCU: 0x580, offset: 0x580, size: 0x8, addend: 0x0, symName: _hash_insert, symObjAddr: 0xB90, symBinAddr: 0x10000167C, symSize: 0x968 }
-  - { offsetInCU: 0x664, offset: 0x664, size: 0x8, addend: 0x0, symName: _get_hash, symObjAddr: 0x14F8, symBinAddr: 0x100001FE4, symSize: 0x2B0 }
-  - { offsetInCU: 0x725, offset: 0x725, size: 0x8, addend: 0x0, symName: _check_print, symObjAddr: 0x17A8, symBinAddr: 0x100002294, symSize: 0x724 }
-  - { offsetInCU: 0x802, offset: 0x802, size: 0x8, addend: 0x0, symName: _create_array, symObjAddr: 0x1ECC, symBinAddr: 0x1000029B8, symSize: 0x130 }
-  - { offsetInCU: 0x82A, offset: 0x82A, size: 0x8, addend: 0x0, symName: _double_array, symObjAddr: 0x1FFC, symBinAddr: 0x100002AE8, symSize: 0xC4 }
-  - { offsetInCU: 0x86E, offset: 0x86E, size: 0x8, addend: 0x0, symName: _get_array_size, symObjAddr: 0x20C0, symBinAddr: 0x100002BAC, symSize: 0x60 }
-  - { offsetInCU: 0x898, offset: 0x898, size: 0x8, addend: 0x0, symName: _xorhash, symObjAddr: 0x2120, symBinAddr: 0x100002C0C, symSize: 0x100 }
-  - { offsetInCU: 0x8EF, offset: 0x8EF, size: 0x8, addend: 0x0, symName: _get_initial_array_use, symObjAddr: 0x2220, symBinAddr: 0x100002D0C, symSize: 0x8 }
-  - { offsetInCU: 0x909, offset: 0x909, size: 0x8, addend: 0x0, symName: _freehash, symObjAddr: 0x2228, symBinAddr: 0x100002D14, symSize: 0x1B8 }
-  - { offsetInCU: 0x96A, offset: 0x96A, size: 0x8, addend: 0x0, symName: _get_array_use, symObjAddr: 0x23E0, symBinAddr: 0x100002ECC, symSize: 0x64 }
-  - { offsetInCU: 0x994, offset: 0x994, size: 0x8, addend: 0x0, symName: _skip_initial_parameters, symObjAddr: 0x2444, symBinAddr: 0x100002F30, symSize: 0x80 }
+  - { offsetInCU: 0x66D, offset: 0x66D, size: 0x8, addend: 0x0, symName: _get_hash, symObjAddr: 0x14F8, symBinAddr: 0x100001FE4, symSize: 0x2B0 }
+  - { offsetInCU: 0x72E, offset: 0x72E, size: 0x8, addend: 0x0, symName: _check_print, symObjAddr: 0x17A8, symBinAddr: 0x100002294, symSize: 0x724 }
+  - { offsetInCU: 0x80B, offset: 0x80B, size: 0x8, addend: 0x0, symName: _create_array, symObjAddr: 0x1ECC, symBinAddr: 0x1000029B8, symSize: 0x130 }
+  - { offsetInCU: 0x833, offset: 0x833, size: 0x8, addend: 0x0, symName: _double_array, symObjAddr: 0x1FFC, symBinAddr: 0x100002AE8, symSize: 0xC4 }
+  - { offsetInCU: 0x877, offset: 0x877, size: 0x8, addend: 0x0, symName: _get_array_size, symObjAddr: 0x20C0, symBinAddr: 0x100002BAC, symSize: 0x60 }
+  - { offsetInCU: 0x8A1, offset: 0x8A1, size: 0x8, addend: 0x0, symName: _xorhash, symObjAddr: 0x2120, symBinAddr: 0x100002C0C, symSize: 0x100 }
+  - { offsetInCU: 0x8F8, offset: 0x8F8, size: 0x8, addend: 0x0, symName: _get_initial_array_use, symObjAddr: 0x2220, symBinAddr: 0x100002D0C, symSize: 0x8 }
+  - { offsetInCU: 0x912, offset: 0x912, size: 0x8, addend: 0x0, symName: _freehash, symObjAddr: 0x2228, symBinAddr: 0x100002D14, symSize: 0x1B8 }
+  - { offsetInCU: 0x973, offset: 0x973, size: 0x8, addend: 0x0, symName: _get_array_use, symObjAddr: 0x23E0, symBinAddr: 0x100002ECC, symSize: 0x64 }
+  - { offsetInCU: 0x99D, offset: 0x99D, size: 0x8, addend: 0x0, symName: _skip_initial_parameters, symObjAddr: 0x2444, symBinAddr: 0x100002F30, symSize: 0x80 }
 ...

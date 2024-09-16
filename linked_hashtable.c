@@ -9,6 +9,23 @@
 #include <math.h>
 #include <assert.h>
 
+
+#ifndef TABLE_SIZE  
+#define TABLE_SIZE (1 << 10) // Default node size
+#endif
+
+#ifndef DATASET_TYPE
+#define DATASET_TYPE 1  // Default dataset type
+#endif
+
+#ifndef WORDS_NUM
+#define WORDS_NUM 1000000  // Default dataset type
+#endif
+
+#ifndef SEED
+#define SEED 73802 // Default node size
+#endif
+
 /* Global Variables */
 #define MAX_STRING_BYTES 64
 #define DOUBLE_SIZE 2
@@ -25,10 +42,7 @@
 #define ALLOCATE_OVERHEAD 8
 
 /* Parameter choice */
-#define TABLE_SIZE (1 <<12)
-#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
 // #define FILENAME "wordstream.txt"
-#define FILENAME "wikipedia_with_cap.txt"
 
 /* Toggle */
 #define PRINT_TOGGLE 0
@@ -54,7 +68,7 @@ char* create_node(char* const str);
 /* Prototypes for checking */
 void check_print(hashtable_t* table, bool print, char* buffer);
 
-static int seed = 73802;
+static int seed = SEED;
 
 static size_t memory_usage = 0;
 static int unique_key_counter = 0;
@@ -85,7 +99,16 @@ int main(int argc, char** argv) {
     double elapsed1, elapsed2;
 
 
-    file = fopen(FILENAME, "r");
+    /* Read file depending on dataset type */
+    if (DATASET_TYPE == 1) { // Unique words
+        file = fopen("wordstream.txt", "r");
+    } else if (DATASET_TYPE == 2) { // Wikipedia 
+        file = fopen("wikipedia_with_cap.txt", "r");
+    } else { // Wikipedia without common function words
+        assert(DATASET_TYPE == 3); 
+        file = fopen("wikicap_without_common.txt", "r");
+    }
+
     if (file == NULL) {
         fprintf(stderr, "Error opening file\n");
         return 1;
