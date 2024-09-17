@@ -3,3 +3,6 @@
 test
 *.zsh
 *.dSYM
+*.o
+build/
+.DS_Store

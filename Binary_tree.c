@@ -52,11 +52,13 @@ int binary_tree_search(char* node, const char* str);
 
 
 
+int custom_strcmp(char** str_ptr, const char* str, int key_str_length);
+
 /* Supplementary Function Prototypes */
 void move_to_left_pointer(char** node_ptr);
 void move_to_right_pointer(char** node_ptr);
 int compare_key_string(char* n1, char* n2);
-int compare_str_node(const char* str, char* n1);
+int compare_str_node(const char* str, char* n1, char* buffer);
 void increment_counter(char* node);
 void print_binary_node(char* node, char* word);
 void print_node_string(char* node, char* word);
@@ -189,13 +191,15 @@ void binary_tree_insert(char** root_ptr, const char* str) {
     char* x = *root_ptr;
     int store;
 
+    char buffer[MAX_STRING_BYTES + 1];
+
     while(x != NULL) {
         /* Save previous subroot */
         y = x;
 
         /* Compare keys to determine which child node to access */
         /* String smaller than current key */
-        if ((store = compare_str_node(str, x)) <= 0) {
+        if ((store = compare_str_node(str, x, buffer)) <= 0) {
 
             /* If same string, increment counter for x */
             if (store == 0) {
@@ -227,29 +231,58 @@ void binary_tree_insert(char** root_ptr, const char* str) {
 /* Function that takes a root node and string to search as input. The function outputs
  * the node if the string is found. Otherwise, it outputs to stdout that string
  * was not found. */
-int binary_tree_search(char* root, const char* str) {
-    char tmp_word[MAX_STRING_BYTES + 1];
+//int binary_tree_search(char* root, const char* str) {
+//    char tmp_word[MAX_STRING_BYTES + 1];
+//
+//    char* current = root;
+//
+//    /* Node empty or key found  */
+//    if (root == NULL) {
+//        printf("String is not found\n");
+//        assert(0); // String should always be found
+//        return 0;
+//    } 
+//    
+//    if (compare_str_node(str, root, tmp_word) == 0) {
+//        // printf("String is found\n");
+//        // print_binary_node(root, tmp_word);
+//        return 1;
+//    }
+//    
+//    /* Search children nodes */
+//    if (compare_str_node(str, root, tmp_word) < 0) {
+//        return binary_tree_search(*(char**)(root + LEFT_PTR_OFFSET), str);
+//    }
+//    else{
+//        return binary_tree_search(*(char**)(root + RIGHT_PTR_OFFSET), str);
+//    }
+//}
 
-    /* Node empty or key found  */
-    if (root == NULL) {
-        printf("String is not found\n");
-        assert(0); // String should always be found
-        return 0;
-    } 
-    
-    if (compare_str_node(str, root) == 0) {
-        // printf("String is found\n");
-        // print_binary_node(root, tmp_word);
-        return 1;
+
+/* Function that takes a root node and string to search as input. The function outputs
+ * the node if the string is found. Otherwise, it outputs to stdout that string
+ * was not found. */
+int binary_tree_search(char* root, const char* str) {
+    char buffer[MAX_STRING_BYTES + 1];
+    char* current = root;
+    int store;
+
+    while (current != NULL) {
+        if ((store = compare_str_node(str, current, buffer)) == 0) {
+            //printf("String is found\n");
+            //print_binary_node(current, buffer);
+            return 1;
+
+        /* WHen string smaller than key, traverse left branch */
+        } else if (store < 0) {
+            current = *(char**)(current + LEFT_PTR_OFFSET);
+        /* When string is larger than the key, traverse right branch */
+        } else {
+            current = *(char**)(current + RIGHT_PTR_OFFSET);
+        }
     }
-    
-    /* Search children nodes */
-    if (compare_str_node(str, root) < 0) {
-        return binary_tree_search(*(char**)(root + LEFT_PTR_OFFSET), str);
-    }
-    else{
-        return binary_tree_search(*(char**)(root + RIGHT_PTR_OFFSET), str);
-    }
+
+    return 0;
 }
 
 
@@ -280,6 +313,28 @@ char* create_node(const char* str) {
 
     return tmp;
 }
+
+
+
+/* Function that takes a ptr to a str (in a key) and string to compare as input. The funciton compares 
+ * the relative lexigraphic size of the strings, and outputs the results. The function also moves the 
+ * ptr to the string to the start of the next block */
+inline int custom_strcmp(char** str_ptr, const char* str, int key_str_length) {
+    /* String comparision between the two strings */
+    while(**str_ptr && (**str_ptr == *str)) {
+        (*str_ptr)++;
+        str++;
+        key_str_length--;
+    }
+
+    /* Lexigraphic difference between the two strings */
+    int difference = (unsigned char)(**str_ptr) - (unsigned char)(*str);
+    *(str_ptr) += key_str_length + 1;
+    
+    keys_processed++;
+    return difference;
+}
+
 
 /* Function that takes a node_ptr and moves the position of *node_ptr so that it points to the left child pointer.
  * The function is just for convenient naming. Don't need to move the pointer */
@@ -326,8 +381,7 @@ int compare_key_string(char* n1, char* n2) {
 /* Function that takes a string and node as input, and compares the two strings (const string and string in node key)
  * lexigraphically. The function outputs <0 if constant string is less than n1 string , 0 if 
  * constant string and n1 string are equal, and >0 if constant string is larger than n1 string. */
-int compare_str_node(const char* str, char* n1) {
-    char buffer_1[MAX_STRING_BYTES + 1];
+int compare_str_node(const char* str, char* n1, char* buffer_1) {
 
     int n1_length = move_to_string(&n1);
     memcpy(buffer_1, n1, n1_length + 1);
@@ -337,6 +391,10 @@ int compare_str_node(const char* str, char* n1) {
     keys_processed++;
     return strcmp(str, n1);
 }
+
+
+
+
 
 /* Function that takes a char* node as input, and increases the counter by 1 */
 void increment_counter(char* node){
