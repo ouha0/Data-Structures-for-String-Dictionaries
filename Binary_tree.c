@@ -166,13 +166,13 @@ int main(int argc, char** argv) {
 
     /* Printing all the measuring variable data */
     printf("For Binary tree:\n");
-    printf("%d, NUX, B+-tree, non-unique strings\n", non_unique_key_counter);
-    printf("%.3f, INX, B+-tree, seconds to insert\n", elapsed1);
-    printf("%.3f, SRX, B+-tree, seconds to search\n", elapsed2);
-    printf("%zu, MUX, B+-tree, memory usage\n", memory_usage);
-    printf("%d, UKX, B+-tree, unique strings\n", unique_key_counter);
-    printf("%zu, KPX, B+-tree, keys processed\n", keys_processed);
-    printf("%d, NNX, B+-tree, number of nodes\n", number_of_nodes);
+    printf("%d, NUX, Binary tree, non-unique strings\n", non_unique_key_counter);
+    printf("%.3f, INX, Binary tree, seconds to insert\n", elapsed1);
+    printf("%.3f, SRX, Binary tree, seconds to search\n", elapsed2);
+    printf("%zu, MUX, Binary tree, memory usage\n", memory_usage);
+    printf("%d, UKX, Binary tree, unique strings\n", unique_key_counter);
+    printf("%zu, KPX, Binary tree, keys processed\n", keys_processed);
+    printf("%d, NNX, Binary tree, number of nodes\n", number_of_nodes);
     printf("\n");
 
 

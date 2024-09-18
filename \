@@ -31,8 +31,8 @@
 
 /* For convenience */
 #define INIT_PARAM_OFFSET 9 //Initial node maintainence parameter offset
-#define NODE_MID_SIZE (INIT_PARAM_OFFSET + (NODE_SIZE - INIT_PARAM_OFFSET)/ 2.0)
-// #define NODE_MID_SIZE (NODE_SIZE / 2.0)
+// #define NODE_MID_SIZE (INIT_PARAM_OFFSET + (NODE_SIZE - INIT_PARAM_OFFSET)/ 2.0)
+#define NODE_MID_SIZE (NODE_SIZE / 2.0)
 #define STR_SMALLER -1
 #define POSITIVE 10 // This is just any integer, so it returns something 
 #define ALLOCATE_OVERHEAD 8
@@ -122,7 +122,6 @@ void print_node_create_successful(void);
 
 void print_node_address(char* node);
 void print_current_block_address(char* node);
-void find_left_depth(char* root);
 
 
 /* Possible functions that are not done */
@@ -253,11 +252,9 @@ int main(int argc, char** argv) {
 
     // B_tree_check(tree_root);
     print_B_tree(tree_root, word);
-    find_left_depth(tree_root);
 
     printf("%d, DSX, B-tree, dataset type\n", DATASET_TYPE);
     printf("%d, SZX, B-tree, node size parameter\n", NODE_SIZE);
-    printf("%d, HTX, B-tree, left_tree_height\n", left_tree_height);
     printf("%d, NUX, B-tree, non-unique strings from data \n", non_unique_key_counter_from_data);
     printf("%d, NUX, B-tree, non-unique strings from tree \n", non_unique_key_counter_from_tree);
     printf("%.3f, INX, B-tree, seconds to insert\n", elapsed1);
@@ -267,7 +264,6 @@ int main(int argc, char** argv) {
     printf("%zu, KPX, B-tree, keys processed\n", keys_processed);
     printf("%d, NNX, B-tree, number of nodes\n", number_of_nodes);
     printf("%lf, NRX, B-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
-    printf("%lf, WNX, B-tree, average words per node\n", (double)unique_key_counter / number_of_nodes);
     printf("\n");
 
 
@@ -388,9 +384,7 @@ int B_tree_search(char* root, char* array_store, const char* str) {
                     //printf("Key is found, quiting the function...\n");
                     //memcpy(array_store, prev + sizeof(char*) + sizeof(int), tmp_length + 1);
                     //printf("Key is %s, string is %s\n", array_store, str);
-                    //print_node_lexigraphic_check(current);
-                    //printf("stop search at %s\n", str);
-                    
+
                     return 1;
                 } else {
                     /* Stop if current key is smaller larger than key to insert */
@@ -427,21 +421,10 @@ int B_tree_split_child(char* node_x, char* node_y, size_t x_node_use, size_t y_n
     /* Original nodes */
    // size_t x_node_use = get_node_use(node_x);
    // size_t y_node_use = get_node_use(node_y);
-    
-    /* FOR CHECKING */
-    printf("Before node split\n\n");
-    printf("parent...\n");
-    print_node_lexigraphic_check(node_x);
-    printf("child...\n");
-    print_node_lexigraphic_check(node_y);
-
 
 
     /* Create new child node z (sibling of y). Note that node_x is the parent node. node_y and node_z are the child nodes */
     // char* child_y = node_y;
-    if (!node_is_leaf(node_y))
-        printf("YOOOOOOOOO\n");
-
     char* child_z = initialize_node(node_is_leaf(node_y), NODE_SIZE);
 
     /* Find midpoint of node_y to copy to node_z */
@@ -449,10 +432,6 @@ int B_tree_split_child(char* node_x, char* node_y, size_t x_node_use, size_t y_n
 
     // size_t y_mid_offset = approximate_mid(&mid_ptr);
     size_t y_mid_offset = move_mid_node(&mid_ptr); //middle key of y_node
-
-
-    /* Just for checking */
-    printf("Node split occurs at ratio %lf\n", (double)y_mid_offset/(y_node_use - get_init_param_offset()));
 
     /* This is the middle key of the node_y */
     int tmp_length = *(int*)mid_ptr; // y_child middle key length
@@ -500,17 +479,6 @@ int B_tree_split_child(char* node_x, char* node_y, size_t x_node_use, size_t y_n
     update_node_use(node_x, x_node_use + key_size + sizeof(char*));
     update_node_use(child_z, INITIAL_NODE_SIZE_USE + (y_node_use - y_mid_offset));
     update_node_use(node_y, y_mid_offset - key_size);
-
-
-    
-    /* FOR CHECKING */
-    printf("After node split\n\n");
-    printf("parent...\n");
-    print_node_lexigraphic_check(node_x);
-    printf("left child ...\n");
-    print_node_lexigraphic_check(node_y);
-    printf("right child ...\n");
-    print_node_lexigraphic_check(child_z);
 
     return 1;
 }
@@ -1816,7 +1784,6 @@ void B_tree_check(char* root) {
     size_t offset = skip_initial_parameters(&ptr);
     size_t node_space_used = get_node_use(root);
 
-
     /* Free each child ptr node */
     while(offset < node_space_used) {
         /* Recurse child ptr */
@@ -1833,13 +1800,10 @@ void B_tree_check(char* root) {
         ptr += sizeof(int) + tmp_length + 1 + sizeof(int);
         offset += sizeof(int) + tmp_length + 1 + sizeof(int);
     }
-    
-
 
     if (PRINT_TOGGLE)
         print_node_lexigraphic_check(root);
     print_node_use_ratio(root);
-    
 }
 
 void find_left_depth(char* root) {

@@ -1,7 +1,6 @@
 *.txt
 *.log
-test
-*.zsh
+test/
 *.dSYM
 *.o
 build/
