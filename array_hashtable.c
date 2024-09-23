@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
     printf("%zu, MUX, Array-hash, memory usage\n", memory_usage);
     printf("%d, UKX, Array-hash, unique strings\n", unique_key_counter);
     printf("%zu, KPX, Array-hash, keys processed\n", keys_processed);
-    printf("%d, NNX, Array-hash, number of nodes\n", number_of_nodes);
+    // printf("%d, NNX, Array-hash, number of nodes\n", number_of_nodes);
     printf("\n");
 
     fclose(file);

@@ -5,23 +5,27 @@ cd "$(dirname "$0")/.."
 
 
 
-results_file="results/B_tree_vary_words.txt"
+results_file="results/Binary_vary_words.txt"
 rm -f ./$results_file
 
 WORD_VALUES=(10000 50000 250000 1250000 6250000)
 DATA=1
-NSIZE=4096
+NSIZE=512
 
 
 
 for WORDS in $WORD_VALUES; do
-    echo "------- Running experiments with DATA=$DATA WORDS=$WORDS NSIZE=$NSIZE -------" | tee -a $results_file
+    #echo "------- Running experiments with DATA=$DATA WORDS=$WORDS NSIZE=$NSIZE -------" | tee -a $results_file
+    echo "------- Running experiments with DATA=$DATA WORDS=$WORDS -------" | tee -a $results_file
 
-    # Compile programs 
+    # Compile programs (debugging)
     #gcc -fsanitize=address -g -D NODE_SIZE=$NSIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS B+_tree.c -o plus
-    #gcc -fsanitize=address -g -D NODE_SIZE=$NSIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS B_tree.c -o tree
-    gcc -fsanitize=address -g -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS Binary_tree.c -o binary
+    #gcc -fsanitize=address -g -Wall -Wextra -D NODE_SIZE=$NSIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS B_tree.c -o tree
+    #gcc -fsanitize=address -g -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS Binary_tree.c -o binary
     
+    #Compile programs (for performance)
+    gcc -O2 -g -D NODE_SIZE=$NSIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS B_tree.c -o tree
+    gcc -O2 -g -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS Binary_tree.c -o binary
 
     # Check if compilation was successful
     if [[ $? != 0 ]]; then

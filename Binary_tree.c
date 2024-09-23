@@ -1,4 +1,5 @@
 /* Libraries */
+#include <_time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,7 +53,7 @@ int binary_tree_search(char* node, const char* str);
 
 
 
-int custom_strcmp(char** str_ptr, const char* str, int key_str_length);
+int custom_strcmp(const char* str, char* str_ptr);
 
 /* Supplementary Function Prototypes */
 void move_to_left_pointer(char** node_ptr);
@@ -76,6 +77,12 @@ static size_t memory_usage = 0;
 static size_t keys_processed = 0;
 static int number_of_nodes = 0;
 
+
+
+/* Variables for debugging */
+static size_t total_node_search_visits = 0;
+
+
 int main(int argc, char** argv) {
 
 
@@ -83,8 +90,9 @@ int main(int argc, char** argv) {
     char word[100]; size_t counter = 1; int str_length, flag = 0;
 
     /* Variables for measuring time */
-    struct timespec prec_start, prec_end;
-    double elapsed1, elapsed2;
+    struct timespec prec_start, prec_end, search_start, search_end;
+    double elapsed1, elapsed2 = 0;
+    double single_search_time;
     
     /* Row allocation */
     char **word_list = (char**)malloc(sizeof(char*) * WORDS_NUM);
@@ -148,15 +156,22 @@ int main(int argc, char** argv) {
 
     /* Search for the words in the binary tree */
 
-    clock_gettime(CLOCK_MONOTONIC, &prec_start);
+    //clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i++) {
+        clock_gettime(CLOCK_MONOTONIC, &search_start);
         if(!binary_tree_search(tree_root, word_list[i])) {
             /* Word not found for some reason */
             assert(0);
         }
+        clock_gettime(CLOCK_MONOTONIC, &search_end);
+
+        /* For checking and accumulate individual search times to cumulative search times */
+        single_search_time = (search_end.tv_sec - search_start.tv_sec) + (search_end.tv_nsec - search_start.tv_nsec) / 1E9; 
+        printf("The time to search for %s was %lf\n", word_list[i], single_search_time);
+        elapsed2 += single_search_time;
     }
-    clock_gettime(CLOCK_MONOTONIC, &prec_end);
-    elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
+    // clock_gettime(CLOCK_MONOTONIC, &prec_end);
+    // elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
 
     /* Printing all strings in order */
@@ -176,6 +191,11 @@ int main(int argc, char** argv) {
     printf("\n");
 
 
+    printf("These measurements are used for debugging\n");
+    printf("The average node visits per string search is %lf\n", (double)total_node_search_visits/non_unique_key_counter);
+    printf("The average word search time is %lf\n", elapsed2/non_unique_key_counter);
+    
+
 
     free_all_nodes(tree_root);
     free_array_list(word_list);
@@ -191,7 +211,7 @@ void binary_tree_insert(char** root_ptr, const char* str) {
     char* x = *root_ptr;
     int store;
 
-    char buffer[MAX_STRING_BYTES + 1];
+    // char buffer[MAX_STRING_BYTES + 1];
 
     while(x != NULL) {
         /* Save previous subroot */
@@ -199,7 +219,9 @@ void binary_tree_insert(char** root_ptr, const char* str) {
 
         /* Compare keys to determine which child node to access */
         /* String smaller than current key */
-        if ((store = compare_str_node(str, x, buffer)) <= 0) {
+        //if ((store = compare_str_node(str, x, buffer)) <= 0)
+
+        if ((store = strcmp(str, x + 2 * sizeof(char*) + sizeof(int))) <= 0) {
 
             /* If same string, increment counter for x */
             if (store == 0) {
@@ -220,8 +242,9 @@ void binary_tree_insert(char** root_ptr, const char* str) {
     char* z = create_node(str);
     if (y == NULL) {
         *root_ptr = z;
-        printf("New root\n");
-    } else if (compare_key_string(z, y) < 0) {
+        // printf("New root\n");
+    // } else if (compare_key_string(z, y) < 0) {
+    } else if (strcmp(z + 2 * sizeof(char*) + sizeof(int), y + 2 * sizeof(char*) + sizeof(int)) < 0) {
         *(char**)(y + LEFT_PTR_OFFSET) = z;
     } else {
         *(char**)(y + RIGHT_PTR_OFFSET) = z;
@@ -267,10 +290,24 @@ int binary_tree_search(char* root, const char* str) {
     char* current = root;
     int store;
 
+
+    /* For checking */
+    int nodes_visited = 0;
+
     while (current != NULL) {
-        if ((store = compare_str_node(str, current, buffer)) == 0) {
+        // if ((store = compare_str_node(str, current, buffer)) == 0) {
+        //if ((store = custom_strcmp(str, current + sizeof(char*) + sizeof(char*) + sizeof(int))) == 0) {
+
+        nodes_visited++;
+        keys_processed++; // string comparison 
+        
+        if ((store = strcmp(str, current + 2 * sizeof(char*) + sizeof(int))) == 0) {
             //printf("String is found\n");
             //print_binary_node(current, buffer);
+            // printf("To find %s, there were %d node visits\n", str, nodes_visited);
+
+            total_node_search_visits += nodes_visited;
+            printf("To find %s, there were %d node visits\n", str, nodes_visited);
             return 1;
 
         /* WHen string smaller than key, traverse left branch */
@@ -282,6 +319,8 @@ int binary_tree_search(char* root, const char* str) {
         }
     }
 
+    /* Performance measure: Increase tally */
+    total_node_search_visits += nodes_visited;
     return 0;
 }
 
@@ -319,20 +358,18 @@ char* create_node(const char* str) {
 /* Function that takes a ptr to a str (in a key) and string to compare as input. The funciton compares 
  * the relative lexigraphic size of the strings, and outputs the results. The function also moves the 
  * ptr to the string to the start of the next block */
-inline int custom_strcmp(char** str_ptr, const char* str, int key_str_length) {
+inline int custom_strcmp(const char* str, char* str_ptr) {
     /* String comparision between the two strings */
-    while(**str_ptr && (**str_ptr == *str)) {
-        (*str_ptr)++;
+    while(*str_ptr && (*str_ptr == *str)) {
+        str_ptr++;
         str++;
-        key_str_length--;
     }
 
-    /* Lexigraphic difference between the two strings */
-    int difference = (unsigned char)(**str_ptr) - (unsigned char)(*str);
-    *(str_ptr) += key_str_length + 1;
-    
     keys_processed++;
-    return difference;
+    /* Lexigraphic difference between the two strings */
+    
+    return (unsigned char)(*str_ptr) - (unsigned char)(*str);
+    
 }
 
 
@@ -397,7 +434,7 @@ int compare_str_node(const char* str, char* n1, char* buffer_1) {
 
 
 /* Function that takes a char* node as input, and increases the counter by 1 */
-void increment_counter(char* node){
+inline void increment_counter(char* node){
     /* Skip child pointers */
     node += 2 * sizeof(char*);
 

@@ -12,10 +12,11 @@
 #define ONE_MILLION 1000000
 #define TEN_MILLION 10000000
 #define HUNDRED_MILLION 100000000
+#define ALL 1000000000
 
-#define WORDS_NUM HUNDRED_MILLION // Parameter to control how many words to get from text file 
-// #define FILENAME "wordstream.txt"
-// #define FILENAME "wikipedia_with_cap.txt"
+#define WORDS_NUM ALL // Parameter to control how many words to get from text file 
+//#define FILENAME "wordstream.txt"
+//#define FILENAME "wikipedia_with_cap.txt"
 #define FILENAME "wikicap_without_common.txt"
 
 /* Global Variables */
@@ -83,6 +84,8 @@ int main(int argc, char** argv) {
         // printf("There are %-7zu words of length %-2d\n", data_count[i], i);
         printf("(%d, %zu)  ", i, data_count[i]);
     }
+
+    free(data_count);
 
     return 0;
 
