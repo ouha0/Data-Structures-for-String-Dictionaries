@@ -96,6 +96,11 @@ static int non_unique_key_counter = 0;
 static size_t keys_processed = 0;
 static int number_of_nodes = 0;
 
+/* Static variables for checking */
+static size_t optimization_counter = 0;
+
+
+
 int main(int argc, char** argv) {
     
     FILE* file;
@@ -115,7 +120,7 @@ int main(int argc, char** argv) {
 
     /* Variables for measuring time */
     struct timespec prec_start, prec_end;
-    double elapsed1, elapsed2;
+    long double elapsed1, elapsed2;
 
 
     /* Read file depending on dataset type */
@@ -159,10 +164,11 @@ int main(int argc, char** argv) {
         printf("Not enough words in txt file, only loaded %zu words\n", counter - 1);
     }
 
-    hashtable_t *table = create_hashtable(TABLE_SIZE);
 
-    printf("Beginning Array-hash insertion and search\n");
+    printf("Beginning Array-hash create, insertion and search\n");
+
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
+    hashtable_t *table = create_hashtable(TABLE_SIZE);
     for (int i = 0; i < counter - 1; i ++) {
         // printf("Word to insert in tree is %s\n", word_list[i]);
         hash_insert(table, word_list[i], word);
@@ -182,22 +188,26 @@ int main(int argc, char** argv) {
     check_print(table, PRINT_TOGGLE, word);
 
     /* Measuring data */
-    printf("%d, TSX, Array-hash, table size\n", TABLE_SIZE);
-    printf("%d, NUX, Array-hash, non-unique strings\n", non_unique_key_counter);
-    printf("%.3f, INX, Array-hash, seconds to insert\n", elapsed1);
-    printf("%.3f, SRX, Array-hash, seconds to search\n", elapsed2);
-    printf("%zu, MUX, Array-hash, memory usage\n", memory_usage);
-    printf("%d, UKX, Array-hash, unique strings\n", unique_key_counter);
-    printf("%zu, KPX, Array-hash, keys processed\n", keys_processed);
-    printf("%d, NNX, Array-hash, number of nodes\n", number_of_nodes);
+    printf("%d, TSX, MTFArray-hash, table size\n", TABLE_SIZE);
+    printf("%d, NUX, MTFArray-hash, non-unique strings\n", non_unique_key_counter);
+    printf("%.3Lf, INX, MTFArray-hash, seconds to insert\n", elapsed1);
+    printf("%.3Lf, SRX, MTFArray-hash, seconds to search\n", elapsed2);
+    printf("%zu, MUX, MTFArray-hash, memory usage\n", memory_usage);
+    printf("%d, UKX, MTFArray-hash, unique strings\n", unique_key_counter);
+    printf("%zu, KPX, MTFArray-hash, keys processed\n", keys_processed);
+    printf("%d, NNX, MTFArray-hash, number of nodes\n", number_of_nodes);
+    printf("%.11Lf, STX, MTFArray-hash, average string search time\n", elapsed2/non_unique_key_counter);
     printf("\n");
+
+    printf("The following measurements are used for checking\n");
+    printf("%zu, OCX, MTFArray-hash, optimization_counter\n\n\n", optimization_counter);
 
     fclose(file);
     return 0;
 }
 
 /* Function that creates the hash table */
-hashtable_t* create_hashtable(int size) {
+inline hashtable_t* create_hashtable(int size) {
     hashtable_t* hash = malloc(sizeof(hashtable_t));
     hash -> buckets = calloc(size, sizeof(char**));
     hash -> table_size = size;
@@ -213,7 +223,7 @@ hashtable_t* create_hashtable(int size) {
 
 /* Function that takes no input. The function allocates memory for an initial size array 
  * and outputs the address of the array */
-char* create_array(void) {
+inline char* create_array(void) {
 
     /* Allocate memory for array and make sure it is non empty */
     char* tmp = malloc(sizeof(char) * INITIAL_ARR_SIZE);
@@ -222,7 +232,7 @@ char* create_array(void) {
     *(size_t*)tmp = INITIAL_ARR_SIZE; 
     *(size_t*)(tmp + sizeof(size_t)) = 2 * sizeof(size_t);
 
-    assert(tmp != NULL);
+    // assert(tmp != NULL);
 
     memory_usage += (sizeof(char) * INITIAL_ARR_SIZE);
     memory_usage += ALLOCATE_OVERHEAD;
@@ -234,10 +244,10 @@ char* create_array(void) {
 
 /* Function that takes the initial array pointer as input. The function outputs 
  * a pointer to the new array that is double the size of the original */
-char* double_array(char* array) {
+inline char* double_array(char* array) {
 
     /* Reallocate array to be double the original size */
-    size_t array_size = get_array_size(array);
+    size_t array_size = *(size_t*)array;
     char* tmp = realloc(array, sizeof(char*) * (array_size * 2));
     
     /* Update the array size in the doubled array */
@@ -308,27 +318,47 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
         size_t key_size;
 
         
-        int tmp_length, tmp_counter;
+        int tmp_length, tmp_counter, length_vary, str_cmp_difference;
+        char* str_reuse;
         
         /* Find if the key is already stored in the array */
         while(offset < array_use) {
             tmp_length = *(int*)tmp_ptr; tmp_ptr += sizeof(int);
-            memcpy(buffer, tmp_ptr, tmp_length + 1);
+
+            // memcpy(buffer, tmp_ptr, tmp_length + 1);
 
             /* String comparison -> Keys processed */
-            keys_processed++;
+            // keys_processed++;
 
             /* If there is a string match, increment the string 
              * counter and end the function. Also implement move to front 
              * strategy */
-            if (strcmp(buffer, str) == 0) {
-                *(int*)(tmp_ptr + tmp_length + 1) += 1;
+
+    
+            /* Copy variables to reuse */
+            length_vary = tmp_length;
+            str_reuse = str;
+
+            while(*tmp_ptr && (*tmp_ptr == *str_reuse)) {
+                tmp_ptr++;
+                str_reuse++;
+                length_vary--;
+            }
+            
+            /* Lexigraphic difference between the two strings */
+            str_cmp_difference = (unsigned char)(*tmp_ptr) - (unsigned char)(*str_reuse);
+            tmp_ptr += length_vary + 1; 
+            keys_processed++;
+
+
+            if (str_cmp_difference == 0) {
+                *(int*)(tmp_ptr) += 1;
             
                 /* Implement MTF */
                 /* Get key size, copy key to buffer, shift the memory,
                  * move the key to the start */
                 key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
-                memcpy(buffer, tmp_ptr - sizeof(int), key_size); 
+                memcpy(buffer, tmp_ptr - sizeof(int) - tmp_length - 1, key_size); 
                 memmove(array + 2 * sizeof(size_t) + key_size,
                         array + 2 * sizeof(size_t), offset - 2 * sizeof(size_t));
                 memcpy(array + 2 * sizeof(size_t), buffer, key_size);
@@ -337,12 +367,12 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             }
 
             /* Otherwise, update the ptr as well as the offset to the next string */
-            tmp_ptr += tmp_length + 1 + sizeof(int);
+            tmp_ptr += sizeof(int);
             offset += sizeof(int) + tmp_length + 1 + sizeof(int);
         }
 
         /* Just a sanity check */
-        assert(offset == array_use);
+        // assert(offset == array_use);
 
         /* The string to insert wasn't found, hence it is a new string */
         tmp_length = strlen(str);
@@ -359,6 +389,8 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             array = double_array(array);
             table -> buckets[index] = array ;
             
+
+            /* TO CHANGE: THIS MAY BE WRONG: ARRAY BYTES =/= Number of keys */
             /* Move all elements of array into another array -> update keys processed */
             keys_processed += array_use;
 
@@ -370,8 +402,14 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
         key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
         tmp_ptr = array + 2 * sizeof(size_t);
 
-        /* Shift the array to the right to fit the new key*/
+
+        /* To CHNAGE: NEED TO UPDATE keys processed. Shifting elements in the 
+         * array is processing keys */
+
+
+        /* Shift the array to the right to fit the new key */
         memmove(tmp_ptr + key_size, tmp_ptr, offset - 2 * sizeof(size_t));
+        
         *(int*)tmp_ptr = tmp_length; tmp_ptr += sizeof(int);
         memcpy(tmp_ptr, str, tmp_length + 1); tmp_ptr += tmp_length + 1;
         *(int*)tmp_ptr = 1;
@@ -392,65 +430,88 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
     unsigned int index = xorhash(str, TABLE_SIZE);
 
     /* Get the address of the node from the bucket */
-    char* array = table -> buckets[index];
+    char* array = table -> buckets[index]; 
 
     /* Bucket is emtpy. Note that this shouldn't happen */
-    if (array == NULL) {
-        printf("The bucket is emtpy! This shouldn't happen!\n");
-        assert(0);
+    //if (array == NULL) {
+    //    printf("The bucket is emtpy! This shouldn't happen!\n");
+    //    assert(0);
     /* Otherwise the bucket is non empty. Search the array to find the key match */
-    } else {
-        char* tmp = array;
+    // } else {
+    
+
+
+    char* tmp = array; char* str_reuse;
+    
+    /* Think the array_size is not required */
+    //size_t array_size = *(size_t*)tmp; 
+
+
+    tmp += sizeof(size_t);
+    
+    size_t array_use = *(size_t*)tmp; tmp += sizeof(size_t);
+    size_t offset = 2 * sizeof(size_t);
+
+    int tmp_length, length_vary;
+    int str_cmp_difference;
+
+    /* Loop through the array to find the key */
+    while(offset < array_use) {
+        tmp_length = *(int*)tmp; tmp += sizeof(int);
+
+        /* Copy the string into the buffer */
+        // memcpy(buffer, tmp, tmp_length + 1);
         
-        /* Think the array_size is not required */
-        //size_t array_size = *(size_t*)tmp; 
-        tmp += sizeof(size_t);
+        /* If the string is found, 
+         * print the key data, and return the address of 
+         * key */
         
-        size_t array_use = *(size_t*)tmp; tmp += sizeof(size_t);
-        size_t offset = 2 * sizeof(size_t);
+        /* Copy variables to reuse */
+        length_vary = tmp_length;
+        str_reuse = str;
 
-        int tmp_length, tmp_counter;
-
-        /* Loop through the array to find the key */
-        while(offset < array_use) {
-            tmp_length = *(int*)tmp; tmp += sizeof(int);
-
-            /* Copy the string into the buffer */
-            memcpy(buffer, tmp, tmp_length + 1);
-            
-            /* If the string is found, 
-             * print the key data, and return the address of 
-             * key */
-            if (strcmp(buffer, str) == 0) {
-
-                
-                /* Just for checking purposes */
-                //printf("The string to search is %s\n", str);
-                //printf("key data belongs to bucket address %p\n", array);
-                //printf("The string is %s\n", buffer);
-                //printf("The string counter is %d\n", *(int*)(tmp + tmp_length + 1));
-                
-                /* Implement MTF strategy */
-                /* Move the key found to the start of the array */
-                size_t key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
-                memcpy(buffer, tmp - sizeof(int), key_size); 
-                memmove(array + 2 * sizeof(size_t) + key_size,
-                        array + 2 * sizeof(size_t), offset - 2 * sizeof(size_t));
-                memcpy(array + 2 * sizeof(size_t), buffer, key_size);
-
-                /* Return the address of the key (inside the array) */
-                return (tmp - sizeof(int));
-            }
-            
-            /* Move the temporary pointer to the next key in the array 
-             * and update the offset size accordinly */
-            tmp += tmp_length + 1 + sizeof(int);
-            offset += sizeof(int) + tmp_length + 1 + sizeof(int);
+        while(*tmp && (*tmp == *str_reuse)) {
+            tmp++;
+            str_reuse++;
+            length_vary--;
         }
+        
+        /* Lexigraphic difference between the two strings */
+        str_cmp_difference = (unsigned char)(*tmp) - (unsigned char)(*str_reuse);
+        tmp += length_vary + 1; 
+        keys_processed++;
 
-        printf("The array has been looped. The string has not been found!\n");
-        assert(0);
+
+        if (str_cmp_difference == 0) {
+
+            
+            /* Just for checking purposes */
+            //printf("The string to search is %s\n", str);
+            //printf("key data belongs to bucket address %p\n", array);
+            //printf("The string is %s\n", buffer);
+            //printf("The string counter is %d\n", *(int*)(tmp + tmp_length + 1));
+            
+            /* Implement MTF strategy */
+            /* Move the key found to the start of the array */
+            size_t key_size = sizeof(int) + tmp_length + 1 + sizeof(int);
+            memcpy(buffer, tmp - sizeof(int) - tmp_length - 1, key_size); 
+            memmove(array + 2 * sizeof(size_t) + key_size,
+                    array + 2 * sizeof(size_t), offset - 2 * sizeof(size_t));
+            memcpy(array + 2 * sizeof(size_t), buffer, key_size);
+
+            /* Return the address of the key (inside the array) */
+            optimization_counter++;
+            return (tmp - sizeof(int));
+        }
+        
+        /* Move the temporary pointer to the next key in the array 
+         * and update the offset size accordinly */
+        tmp += sizeof(int);
+        offset += sizeof(int) + tmp_length + 1 + sizeof(int);
     }
+
+    printf("The array has been looped. The string has not been found!\n");
+    assert(0);
     return NULL;
 }
 
@@ -528,7 +589,7 @@ size_t skip_initial_parameters(char** array_ptr) {
 /* Note: This function is just for convenience and future proofing 
  * Function that takes no input. The function outputs the array use of a
  * newly created array. */
-size_t get_initial_array_use(void) {
+inline size_t get_initial_array_use(void) {
     return (2 * sizeof(size_t));
 }
 
