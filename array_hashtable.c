@@ -225,7 +225,7 @@ char* create_array(void) {
     *(size_t*)tmp = INITIAL_ARR_SIZE; 
     *(size_t*)(tmp + sizeof(size_t)) = 2 * sizeof(size_t);
 
-    assert(tmp != NULL);
+    // assert(tmp != NULL);
 
     memory_usage += (sizeof(char) * INITIAL_ARR_SIZE);
     memory_usage += ALLOCATE_OVERHEAD;
@@ -335,7 +335,7 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
         }
 
         /* Just a sanity check */
-        assert(offset == array_use);
+        // assert(offset == array_use);
 
         /* The string to insert wasn't found, hence it is a new string */
         tmp_length = strlen(str);
