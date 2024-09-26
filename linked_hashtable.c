@@ -77,6 +77,10 @@ static size_t keys_processed = 0;
 static int number_of_nodes = 0;
 static double avg_node_use_ratio = 0;
 
+
+/* Static variables for checking */
+static size_t optimization_counter = 0;
+
 int main(int argc, char** argv) {
     
     FILE* file;
@@ -96,7 +100,7 @@ int main(int argc, char** argv) {
 
     /* Variables for measuring time */
     struct timespec prec_start, prec_end;
-    double elapsed1, elapsed2;
+    long double elapsed1, elapsed2;
 
 
     /* Read file depending on dataset type */
@@ -140,10 +144,11 @@ int main(int argc, char** argv) {
         printf("Not enough words in txt file, only loaded %zu words\n", counter - 1);
     }
 
-    hashtable_t *table = create_hashtable(TABLE_SIZE);
 
-    printf("Beginning Linked-Hash insertion and search\n");
+    printf("Beginning Linked-Hash creation, insertion and search\n");
+
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
+    hashtable_t *table = create_hashtable(TABLE_SIZE);
     for (int i = 0; i < counter - 1; i ++) {
         // printf("Word to insert in tree is %s\n", word_list[i]);
         hash_insert(table, word_list[i], word);
@@ -166,20 +171,25 @@ int main(int argc, char** argv) {
 
     /* Measuring data */
     printf("%d, NUX, Linked-Hash, non-unique strings\n", non_unique_key_counter);
-    printf("%.3f, INX, Linked-Hash, seconds to insert\n", elapsed1);
-    printf("%.3f, SRX, Linked-Hash, seconds to search\n", elapsed2);
+    printf("%.3Lf, INX, Linked-Hash, seconds to insert\n", elapsed1);
+    printf("%.3Lf, SRX, Linked-Hash, seconds to search\n", elapsed2);
     printf("%zu, MUX, Linked-Hash, memory usage\n", memory_usage);
     printf("%d, UKX, Linked-Hash, unique strings\n", unique_key_counter);
     printf("%zu, KPX, Linked-Hash, keys processed\n", keys_processed);
     printf("%d, NNX, Linked-Hash, number of nodes\n", number_of_nodes);
+    printf("%.11Lf, ASX, Linked-Hash, average string search time\n", elapsed2/non_unique_key_counter);
     printf("\n");
+
+    printf("The following variables are used purely for checking\n");
+    printf("%zu, OCX, Linked-Hash, Optimizattion Counter\n", optimization_counter);
+    printf("\n\n\n\n");
 
     fclose(file);
     return 0;
 }
 
 /* Function that creates the hash table */
-hashtable_t* create_hashtable(int size) {
+inline hashtable_t* create_hashtable(int size) {
     hashtable_t* hash = malloc(sizeof(hashtable_t));
     hash -> buckets = calloc(size, sizeof(char**));
     hash -> table_size = size;
@@ -189,7 +199,7 @@ hashtable_t* create_hashtable(int size) {
 
 /* Function that takes a string as input. The function initializes the node with the string data and outputs 
  * the node address */
-char* create_node(char* str) {
+inline char* create_node(char* str) {
     int str_length = strlen(str);
     
     char* node = malloc(sizeof(char*) * (sizeof(char*) + sizeof(int) + (str_length + 1) + sizeof(int)));
@@ -228,8 +238,8 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
     /* Non empty bucket */
     } else {
 
-        char* next;
-        int store_length, store_counter;
+        char* next, *str_reuse;
+        int store_length, store_counter, length_vary, str_cmp_difference;
         /* FInd the correct position to insert the new key */
         char* prev;
 
@@ -242,15 +252,31 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
 
             /* Store the string and string length */
             store_length = *(int*)node; node += sizeof(int); 
-            memcpy(buffer, node, store_length + 1);
+
+            // memcpy(buffer, node, store_length + 1);
+
+            /* String comparison -> keys processed++ */
+
+            /* Copy variables to reuse */
+            length_vary = store_length;
+            str_reuse = str;
+
+            while(*node && (*node == *str_reuse)) {
+                node++;
+                str_reuse++;
+                length_vary--;
+            }
+            
+            /* Lexigraphic difference between the two strings */
+            str_cmp_difference = (unsigned char)(*node) - (unsigned char)(*str_reuse);
+            node += length_vary + 1; 
+            keys_processed++;
 
             /* If the string to insert is the same as linked list, increase the counter */
-            if (strcmp(buffer, str) == 0) {
-                *(int*)(node + store_length + 1) += 1;
+            if (str_cmp_difference == 0) {
+                *(int*)(node) += 1;
                 return;
             }
-            /* String comparison -> keys processed++ */
-            keys_processed++;
             
             /* Go to next node */
             node = *(char**)(prev);
@@ -269,9 +295,9 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
 
     /* Get the address of the node from the bucket */
     char* node = table -> buckets[index];
-    char* next, *prev;
+    char* next, *prev, *str_reuse;
 
-    int store_length;
+    int store_length, length_vary, str_cmp_difference;
     
     /* Linear search along the nodes corresponding to the bucket to find the key */
     while (node != NULL) {
@@ -280,22 +306,38 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
         node += sizeof(char*);
         
         store_length = *(int*)node; node += sizeof(int);
-        memcpy(buffer, node, store_length + 1);
+
+
+        /* Copy variables to reuse */
+        length_vary = store_length;
+        str_reuse = str;
+
+        while(*node && (*node == *str_reuse)) {
+            node++;
+            str_reuse++;
+            length_vary--;
+        }
+        
+        /* Lexigraphic difference between the two strings */
+        str_cmp_difference = (unsigned char)(*node) - (unsigned char)(*str_reuse);
+        
+
+        // node += length_vary + 1;  // Counter note required
 
         /* String comparison -> Keys processed */
         keys_processed++;
 
         /* Return the node address if the string is found in node */
-        if (strcmp(buffer, str) == 0) {
+        if (str_cmp_difference == 0) {
              
             /* Just for checking purposes */
            // printf("The string to search is %s\n", str);
            // printf("Node data address %p ...\n", prev);
            // printf("The string is %s\n", buffer);
            // printf("The string counter is %d\n", *(int*)(node + store_length + 1));
+            optimization_counter++;
             return prev;
         }
-
 
         /* Go to next node of the linked list */
         node = *(char**)prev;
@@ -310,7 +352,7 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
 
 
 /* Hash function */
-unsigned int xorhash(char *word, int tsize)
+inline unsigned int xorhash(char *word, int tsize)
 {
     char	c;
     unsigned int	h;
