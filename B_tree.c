@@ -176,7 +176,7 @@ int main(int argc, char** argv) {
 
     /* Variables for measuring time */
     struct timespec prec_start, prec_end, search_start, search_end;
-    double elapsed1 = 0.0; double elapsed2 = 0.0;
+    long double elapsed1 = 0.0; long double elapsed2 = 0.0;
     double single_search_time;
 
     /* Read file depending on dataset type */
@@ -195,9 +195,6 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    /* Initialize tree */
-    char* tree_root = B_tree_create();
-    
 
     /* Insert all words into word_list  */
     while(fscanf(file, "%s", word) == 1) {
@@ -226,8 +223,11 @@ int main(int argc, char** argv) {
     }
 
 
-    printf("Beginning B-tree insertion and search\n");
+    printf("Beginning B-tree creation, insertion and search\n");
+
     clock_gettime(CLOCK_MONOTONIC, &prec_start);
+    /* Initialize tree */
+    char* tree_root = B_tree_create();
     for (size_t i = 0; i < counter - 1; i ++) {
         // printf("Word to insert in tree is %s\n", word_list[i]);
         B_tree_insert(&tree_root, word_list[i]);
@@ -237,20 +237,16 @@ int main(int argc, char** argv) {
     /* Search for the words in the binary tree */
 
     //clock_gettime(CLOCK_MONOTONIC, &prec_start);
+    
+    clock_gettime(CLOCK_MONOTONIC, &search_start);
     for (size_t i = 0; i < counter - 1; i++) {
-        clock_gettime(CLOCK_MONOTONIC, &search_start);
         if(!B_tree_search(tree_root, word_list[i])) {
             /* Word not found for some reason */
             assert(0);
         }
-        clock_gettime(CLOCK_MONOTONIC, &search_end);
-
-        single_search_time = (search_end.tv_sec - search_start.tv_sec) + (search_end.tv_nsec - search_start.tv_nsec) / 1E9; 
-        printf("The time to search for %s was %lf\n", word_list[i], single_search_time);
-
-        elapsed2 += single_search_time;
-
     }
+    clock_gettime(CLOCK_MONOTONIC, &search_end);
+    elapsed2 = (search_end.tv_sec - search_start.tv_sec) + (search_end.tv_nsec - search_start.tv_nsec) / 1E9; 
 
 
     //clock_gettime(CLOCK_MONOTONIC, &prec_end);
@@ -272,20 +268,23 @@ int main(int argc, char** argv) {
     printf("%d, HTX, B-tree, left_tree_height\n", left_tree_height);
     printf("%d, NUX, B-tree, non-unique strings from data \n", non_unique_key_counter_from_data);
     printf("%d, NUX, B-tree, non-unique strings from tree \n", non_unique_key_counter_from_tree);
-    printf("%.3f, INX, B-tree, seconds to insert\n", elapsed1);
-    printf("%.3f, SRX, B-tree, seconds to search\n", elapsed2);
+    printf("%.3Lf, INX, B-tree, seconds to insert\n", elapsed1);
+    printf("%.3Lf, SRX, B-tree, seconds to search\n", elapsed2);
     printf("%zu, MUX, B-tree, memory usage\n", memory_usage);
     printf("%d, UKX, B-tree, unique strings\n", unique_key_counter);
     printf("%zu, KPX, B-tree, keys processed\n", keys_processed);
     printf("%d, NNX, B-tree, number of nodes\n", number_of_nodes);
     printf("%lf, NRX, B-tree, average node fill ratio\n", avg_node_use_ratio / number_of_nodes);
     printf("%lf, WNX, B-tree, average words per node\n", (double)unique_key_counter / number_of_nodes);
-    printf("\n");
+    printf("%.11Lf, ASX, B-tree, average word search time\n", elapsed2/non_unique_key_counter_from_data);
 
+    printf("\n\n\n");
 
     printf("For checking only\n");
     printf("The average word height is %lf\n", total_word_height/non_unique_key_counter_from_data);
-    printf("The average word search time is %lf\n", elapsed2/non_unique_key_counter_from_data);
+
+
+    printf("\n\n");
 
 
     //printf("\n\n\n");
@@ -314,7 +313,7 @@ int main(int argc, char** argv) {
 }
 
 /* Function that takes no input. It outputs the root node of a B-tree(char*) */
-char* B_tree_create(void) {
+inline char* B_tree_create(void) {
     char* root = initialize_node(true, NODE_SIZE); 
     return root;
 }
@@ -428,6 +427,7 @@ int B_tree_search(char* root, const char* str) {
                     //printf("Found at %lf\n", (double)offset/curr_node_size);
 
                     total_word_height += word_height;
+
                     return 1;
                 } else {
                     /* Stop if current key is smaller larger than key to insert */
@@ -526,7 +526,9 @@ int B_tree_split_child(char* node_x, char* node_y, size_t x_node_use, size_t y_n
     /* Storing child_z ptr into node_x */
     *(char**)node_y_location = child_z;
     
-    update_node_use(node_x, x_node_use + key_size + sizeof(char*)); // Move it here for cache locality 
+    //update_node_use(node_x, x_node_use + key_size + sizeof(char*)); // Move it here for cache locality 
+    
+    *(size_t*)(node_x + sizeof(bool)) = x_node_use + key_size + sizeof(char*);
 
     /* Delete middle key in y and move RHS keys to child_z */
     // *mid_ptr = '\0'; // not sure if needed 
@@ -537,10 +539,14 @@ int B_tree_split_child(char* node_x, char* node_y, size_t x_node_use, size_t y_n
     memmove(child_z + get_init_param_offset(), mid_ptr, y_node_use  + 1 - y_mid_offset);
 //    memset(mid_ptr, 0xFF, get_node_use(node_y) + 1 - y_mid_offset);
 
-    // update_node_use(node_x, x_node_use + key_size + sizeof(char*));
-    update_node_use(child_z, INITIAL_NODE_SIZE_USE + (y_node_use - y_mid_offset));
-    update_node_use(node_y, y_mid_offset - key_size);
 
+    /* Writing code immediately reather than using helping function */
+    /* Update node sizes after node split */
+    //update_node_use(child_z, INITIAL_NODE_SIZE_USE + (y_node_use - y_mid_offset));
+    //update_node_use(node_y, y_mid_offset - key_size);
+
+    *(size_t*)(child_z + sizeof(bool)) = INITIAL_NODE_SIZE_USE + (y_node_use - y_mid_offset);
+    *(size_t*)(node_y + sizeof(bool)) = y_mid_offset - key_size;
 
     
     /* FOR CHECKING */
@@ -561,7 +567,9 @@ int B_tree_split_child(char* node_x, char* node_y, size_t x_node_use, size_t y_n
 
 int B_tree_insert(char** root_ptr, const char* str) {
     
-    size_t prev_root_node_use = get_node_use(*root_ptr);
+    // size_t prev_root_node_use = get_node_use(*root_ptr);
+    size_t prev_root_node_use = *(size_t*)(*root_ptr + sizeof(bool));
+
 
     /* Node will be full if we assume a MAX STRING BYTES */
     if (prev_root_node_use + 1 + get_max_block_size() > NODE_SIZE) {
@@ -580,7 +588,10 @@ int B_tree_insert(char** root_ptr, const char* str) {
         *(char**)tmp = prev_root;
         
         size_t root_node_use = get_init_param_offset() + sizeof(char*);
-        update_node_use(*root_ptr, root_node_use);
+
+        // update_node_use(*root_ptr, root_node_use);
+        *(size_t*)(*root_ptr + sizeof(bool)) = root_node_use;
+        
 
         // *(tmp + sizeof(char*)) = '\0'; //Set null-byte at end of new node; Don't think this is required  
         
@@ -740,20 +751,34 @@ int B_tree_insert_nonfull(char* node, const char* str) {
     size_t node_use, offset, block_size, child_node_use;
     int str_length, store;
 
-    char* tmp, *child;
+    char* tmp, *child, *tmp_move; const char* str_reuse;
 
     char tmp_word[MAX_STRING_BYTES + 1];
 
-    char* prev; int tmp_length;
+    char* prev; int tmp_length, length_vary;
+    bool is_leaf;
 
 
     while (true) {
-        node_use = get_node_use(node);
+
+        // node_use = get_node_use(node);
+        node_use = *(size_t*)(node + sizeof(bool));
+
         tmp = node;
 
-        offset = skip_initial_parameters(&tmp);
+        /* Skip initial paramters */ 
 
-        bool is_leaf = node_is_leaf(node);
+        // offset = skip_initial_parameters(&tmp);
+        offset = get_init_param_offset();
+        tmp += offset;
+
+        /* Finish skip */
+
+
+        // is_leaf = node_is_leaf(node);
+        is_leaf = *(bool*)node;
+        
+
         if (is_leaf) {
 
             /* For checking: Before inserting key into leaf node */
@@ -767,7 +792,7 @@ int B_tree_insert_nonfull(char* node, const char* str) {
                 block_size = sizeof(char*) + sizeof(int) + str_length + 1 + sizeof(int) + sizeof(char*);
 
                 /* Shift the blocks of the node to the right */
-                memmove(tmp + block_size, tmp, node_use + 1 - offset);
+                // memmove(tmp + block_size, tmp, node_use + 1 - offset); // Not needed I think. Null byte is not used anymore 
                 
                 /* Store the key into the node */
                 *(char**)tmp = NULL; tmp += sizeof(char*);
@@ -831,15 +856,18 @@ int B_tree_insert_nonfull(char* node, const char* str) {
                 memcpy(tmp, str, str_length + 1); // Store string inside node 
 
                 tmp += str_length + 1;
-                *(int*)tmp = INITIAL_COUNT; 
+
+                // *(int*)tmp = INITIAL_COUNT; 
+                *(int*)tmp = 1; 
 
             }
 
         /* New key inserted at leaf node */
         unique_key_counter++;
-        /* Update currently used space in the node */
-        update_node_use(node, node_use + block_size);
 
+        /* Update currently used space in the node */
+        // update_node_use(node, node_use + block_size); // Replace function by inline 
+        *(size_t*)(node + sizeof(bool)) = node_use + block_size;
 
 
         /* For checking only */
@@ -891,22 +919,42 @@ int B_tree_insert_nonfull(char* node, const char* str) {
             /* Get correct child pointer node */
             child = *(char**)tmp;
             
-            if ((child_node_use = get_node_use(child)) + get_max_block_size() + 1 > NODE_SIZE) {
+            if ((child_node_use = *(size_t*)(child + sizeof(bool))) + get_max_block_size() + 1 > NODE_SIZE) {
 
                 B_tree_split_child(node, child, node_use, child_node_use, tmp, offset);
 
                 /* If str is larger or equal than current key in parent, increment counter or shift tmp 
                  * by one block */
-                if ((store = compare_middle_string(tmp, tmp_word, str)) <= 0) {
+                
+                /* Compare string of current block  */
+                
+                tmp_move = tmp + sizeof(char*); str_reuse = str;
+                length_vary = *(int*)tmp_move; tmp_move += sizeof(int);
+
+
+                while(*tmp_move && (*tmp_move == *str_reuse)) {
+                    tmp_move++; str_reuse++;
+                    length_vary--;
+                }
+                
+                store = (unsigned char)(*tmp_move) - (unsigned char)(*str_reuse);
+                tmp_move += length_vary + 1;
+
+
+                if (store <= 0) {
 
                     /* If key moved to parent is same as string */
                     if (store == 0) {
-                        increment_block_counter(tmp);
+                        /* Increment counter */
+                        // increment_block_counter(tmp); // Replace function with inline 
+                        *(int*)(tmp_move) += 1;
                         return POSITIVE;
                     }
 
                     /* Shift to the right */
-                    skip_single_block(&tmp);
+                    // skip_single_block(&tmp); // Replace skip block function with inline 
+                    tmp = tmp_move + sizeof(int);
+
                 } 
             }
             node = *(char**)tmp;
@@ -926,13 +974,14 @@ int B_tree_insert_nonfull(char* node, const char* str) {
 // Need to fix, stop at key or ptr
 size_t move_mid_node(char** node_ptr) {
 
-    size_t node_used = get_node_use(*node_ptr);
+    // size_t node_used = get_node_use(*node_ptr); // replace function with inline 
+    size_t node_used = *(size_t*)(*node_ptr + sizeof(bool));
 
     /* Sanity Check */
-    if (!node_ptr) {
-        fprintf(stderr, "Null pointer...\n");
-        return 0;
-    }
+    //if (!node_ptr) {
+    //    fprintf(stderr, "Null pointer...\n");
+    //    return 0;
+    //}
 
     /* Make a copy to modify (not saved) */
     char* tmp = *node_ptr;
@@ -943,48 +992,71 @@ size_t move_mid_node(char** node_ptr) {
     double prev_distance, curr_distance;
 
     size_t prev_key_size, curr_key_size;
+
     /* Go to first and second key for prev_end_offset and curr_start_offset respectively */
-    size_t prev_start_offset = skip_initial_parameters(&tmp); 
-    prev_start_offset += skip_child_ptr(&tmp);
+
+    // size_t prev_start_offset = skip_initial_parameters(&tmp); 
+    size_t prev_start_offset = get_init_param_offset();
+    tmp += prev_start_offset;
+
+    // prev_start_offset += skip_child_ptr(&tmp);
+    tmp += sizeof(char*); prev_start_offset += sizeof(char*);
 
     /* Size of previous key to get the index */
-    prev_key_size = get_single_key_size(tmp);
+    prev_key_size = *(int*)tmp + 1 + sizeof(int) + sizeof(int);
     
+
+    /* BEWARE IF SOMETHING WRONG IT MIGHT BE NODE_SIZE TOO SMALL */
     /* The node is not sufficiently full to perform a node-split (Just an approximation) */
-    if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size() >= node_used) {
-        printf("Node size parameter is too small, unable to do child split...\n");
-        assert(0);
-    }
+    //if (prev_start_offset + prev_key_size + sizeof(char*) + get_max_block_size() >= node_used) {
+    //    printf("Node size parameter is too small, unable to do child split...\n");
+    //    assert(0);
+    //}
     
     /* Move tmp pointer to second key of the node */
 
-    size_t curr_start_offset = prev_start_offset + skip_single_key(&tmp);
-    curr_start_offset += skip_child_ptr(&tmp);
+
+    // size_t curr_start_offset = prev_start_offset + skip_single_key(&tmp);
     
+    int tmp_key_size;
+    tmp_key_size = *(int*)tmp + 1 + 2 * sizeof(int);
+    tmp += tmp_key_size; size_t curr_start_offset = prev_start_offset + tmp_key_size;
+    keys_processed += 1;
+    
+
+    curr_start_offset += sizeof(char*); tmp += sizeof(char*);
+
     prev_distance = fabs(NODE_MID_SIZE - (prev_start_offset + prev_key_size - 1));
     curr_distance = fabs(NODE_MID_SIZE - curr_start_offset);
 
-    curr_key_size = get_single_key_size(tmp);
+
+    // curr_key_size = get_single_key_size(tmp);
+    curr_key_size = *(int*)tmp + 1 + sizeof(int) + sizeof(int);
+
 
     /* Initialize minimum key offset */
-    if (prev_distance < curr_distance) {
-        printf("Node size is most likely too small...\n");
-        assert(0);
+    //if (prev_distance < curr_distance) {
+    //    printf("Node size is most likely too small...\n");
+    //    assert(0);
 
-        min_distance = prev_distance;
-        min_offset = prev_start_offset;
+    //    min_distance = prev_distance;
+    //    min_offset = prev_start_offset;
 
-    } else {
-        
-        /* If second key is the last key, then node split probably shouldn't happen... */
-        if (curr_start_offset + curr_key_size + sizeof(char*) >= node_used) {
-            printf("Something seems off... Node size probably too small... Doing a node split on 2 keys...\n");
-            assert(0);
-        }
+    //} else {
+    //    
+    //    /* If second key is the last key, then node split probably shouldn't happen... */
+    //    //if (curr_start_offset + curr_key_size + sizeof(char*) >= node_used) {
+    //    //    printf("Something seems off... Node size probably too small... Doing a node split on 2 keys...\n");
+    //    //    assert(0);
+    //    //}
 
-        min_offset = curr_start_offset; 
-        min_distance = curr_distance;
-    }
+    //    min_offset = curr_start_offset; 
+    //    min_distance = curr_distance;
+    //}
+
+
+    min_offset = curr_start_offset; 
+    min_distance = curr_distance;
 
     /* Go through blocks of the node and find the key_offset that is closest to NODE_MID_SIZE */
     while(prev_distance > curr_distance) {
@@ -994,8 +1066,16 @@ size_t move_mid_node(char** node_ptr) {
         prev_start_offset = curr_start_offset;
 
         /* Update curr_start offset to next key */
-        curr_start_offset += skip_key_to_key(&tmp);
-        curr_key_size = get_single_key_size(tmp);
+        // curr_start_offset += skip_key_to_key(&tmp);
+         
+        /* Same as skip key to key function */
+        tmp_key_size = *(int*)tmp + 1 + 2 * sizeof(int);
+        tmp += tmp_key_size + sizeof(char*); curr_start_offset += tmp_key_size + sizeof(char*);
+
+
+
+        // curr_key_size = get_single_key_size(tmp);
+        curr_key_size = *(int*)tmp + 1 + sizeof(int) + sizeof(int);
 
         /* Stop if current key is the last key. Can't node split when nothing on the 
          * right side of the middle */
@@ -1136,21 +1216,21 @@ inline int custom_strcmp(char** str_ptr, const char* str, int key_str_length) {
 
 
 /* Function that takes as input (is_leaf[boolean], node_size[size_t]). The function ouputs an empty node (char*) */
-char* initialize_node(bool is_leaf, size_t node_size) {
+inline char* initialize_node(bool is_leaf, size_t node_size) {
 
     /* Dynamically allocate memory for node */
     char* node = (char*)malloc(node_size * sizeof(char));
-    if (!node) {
-        fprintf(stderr, "Failed to initialize node...\n");
-        return NULL;
-    }
+    //if (!node) {
+    //    fprintf(stderr, "Failed to initialize node...\n");
+    //    return NULL;
+    //}
 
     char* tmp = node;
 
     /* Initialize the housekeeping variables for the node */
     *(bool*)(tmp) = is_leaf; tmp += sizeof(bool); // Initialize leaf parameter 
     *(size_t*)(tmp) = INITIAL_NODE_SIZE_USE; tmp += sizeof(size_t); // Initialize curr_node_size_use parameter 
-    *tmp = '\0'; // End node with null-byte
+    // *tmp = '\0'; // End node with null-byte
     
     memory_usage += (node_size * sizeof(char));
     memory_usage += ALLOCATE_OVERHEAD;
@@ -1180,7 +1260,7 @@ inline size_t get_init_param_offset(void) {
 }
 
 /* Function that takes no input and returns the maximum size of a block. (Based on MAX_STRING_BYTES key and ptr) */
-size_t get_max_block_size(void) {
+inline size_t get_max_block_size(void) {
     /* String length integer + String with null-byte + counter + child_ptr */
     return (sizeof(int) + MAX_STRING_BYTES + 1 + sizeof(int) + sizeof(char*));
 }
@@ -1232,11 +1312,6 @@ int get_skip_str_length(char** node_ptr) {
 // Skipped in wrong order, should be key then child ptr
 size_t skip_single_block(char** node_ptr) {
     /* Sanity Check */
-    if (!node_ptr) {
-        fprintf(stderr, "Null pointer...\n");
-        return 0;
-    }
-    
     size_t tmp_offset = 0;
 
     /* offset pointer to node by one block */
@@ -1249,10 +1324,10 @@ size_t skip_single_block(char** node_ptr) {
 /* Function that takes a double pointer node as input and offsets pointer to node by ptr (child node) */
 size_t skip_child_ptr(char** node_ptr) {
     /* Sanity Check */
-    if (!node_ptr) {
-        fprintf(stderr, "Null pointer...\n");
-        return 0;
-    }
+    //if (!node_ptr) {
+    //    fprintf(stderr, "Null pointer...\n");
+    //    return 0;
+    //}
 
     /* offset by ptr */
     *node_ptr += sizeof(char*);
@@ -1263,10 +1338,10 @@ size_t skip_child_ptr(char** node_ptr) {
  * by a single key */
 size_t skip_single_key(char** node_ptr) {
     /* Sanity Check */
-    if (!node_ptr) {
-        fprintf(stderr, "Null pointer...\n");
-        return 0;
-    }
+    //if (!node_ptr) {
+    //    fprintf(stderr, "Null pointer...\n");
+    //    return 0;
+    //}
     
     /* Offset by strlength(int), string(tmp_length + 1), and str counter(int) */
     int tmp_str_length = *(int*)(*node_ptr); *node_ptr += sizeof(int); 
@@ -1317,10 +1392,10 @@ size_t move_ptr_to_ptr(char** node_ptr, char* node_to) {
 
 /* Function that takes a char *node starting at the key as input and calculate the size of the current key */
 size_t get_single_key_size(char *node) {
-    if (!node) {
-        fprintf(stderr, "Null pointer...\n");
-        return 0;
-    }
+    //if (!node) {
+    //    fprintf(stderr, "Null pointer...\n");
+    //    return 0;
+    //}
 
     int tmp_str_length = *(int*)node;
 
@@ -1374,10 +1449,10 @@ size_t skip_block_from_start(char** node_ptr, int index) {
  * of the next key and outputs the offset. */
 size_t skip_key_to_key(char** node_ptr) {
     /* Sanity Checks */
-    if (!node_ptr) {
-        fprintf(stderr, "Null pointer...\n");
-        return 0;
-    }
+    //if (!node_ptr) {
+    //    fprintf(stderr, "Null pointer...\n");
+    //    return 0;
+    //}
 
     /* Move to next key and output offset */
     size_t next_key_offset = 0;
@@ -1389,14 +1464,13 @@ size_t skip_key_to_key(char** node_ptr) {
 /* Function that takes a node and size_t node_size as input. 
  * The function updates the current node use to new_size */
 int update_node_use(char* node, size_t new_size) {
-    if (!node) {
-        fprintf(stderr, "Null pointer...\n");
-        return 0;
-    }
+    //if (!node) {
+    //    fprintf(stderr, "Null pointer...\n");
+    //    return 0;
+    //}
 
     node += sizeof(bool);
     *(size_t*)node = new_size;
-
     
     return 1;    
 }
