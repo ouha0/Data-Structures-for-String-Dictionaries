@@ -26,10 +26,10 @@ for WORDS in $WORD_VALUES; do
     #gcc -fsanitize=address -g -D TABLE_SIZE=$TABLE_SIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS -D SEED=$SEED  mtflinked_hashtable.c -o mtflhash
     
     # Compiled for optimization 
-    #gcc -O2 -g -D TABLE_SIZE=$TABLE_SIZE -D INITIAL_ARR_SIZE=$INIT_ARR_SIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS -D SEED=$SEED array_hashtable.c -o ahash
+    gcc -O2 -g -D TABLE_SIZE=$TABLE_SIZE -D INITIAL_ARR_SIZE=$INIT_ARR_SIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS -D SEED=$SEED array_hashtable.c -o ahash
     #gcc -O2 -g -D TABLE_SIZE=$TABLE_SIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS -D SEED=$SEED  linked_hashtable.c -o lhash
     #gcc -O2 -g -D TABLE_SIZE=$TABLE_SIZE -D INITIAL_ARR_SIZE=$INIT_ARR_SIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS -D SEED=$SEED mtfarray_hashtable.c -o mtfahash
-    gcc -O2 -g -D TABLE_SIZE=$TABLE_SIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS -D SEED=$SEED  mtflinked_hashtable.c -o mtflhash
+    #gcc -O2 -g -D TABLE_SIZE=$TABLE_SIZE -D DATASET_TYPE=$DATA -D WORDS_NUM=$WORDS -D SEED=$SEED  mtflinked_hashtable.c -o mtflhash
 
     # Check if compilation was successful
     if [[ $? != 0 ]]; then
@@ -37,13 +37,13 @@ for WORDS in $WORD_VALUES; do
       exit 1
     fi
 
-    #echo "Run for Array Hash with WORDS=$WORDS DATA=$DATA TABLE_SIZE=$TABLE_SIZE INIT_ARR_SIZE=$INIT_ARR_SIZE SEED=$SEED" | tee -a $results_file
-    #./ahash| tee -a $results_file
+    echo "Run for Array Hash with WORDS=$WORDS DATA=$DATA TABLE_SIZE=$TABLE_SIZE INIT_ARR_SIZE=$INIT_ARR_SIZE SEED=$SEED" | tee -a $results_file
+    ./ahash| tee -a $results_file
     #echo "Run for Linked Hash with WORDS=$WORDS DATA=$DATA TABLE_SIZE=$TABLE_SIZE SEED=$SEED" | tee -a $results_file
     #./lhash| tee -a $results_file
     #echo "Run for MTF Array Hash with WORDS=$WORDS DATA=$DATA TABLE_SIZE=$TABLE_SIZE INIT_ARR_SIZE=$INIT_ARR_SIZE SEED=$SEED" | tee -a $results_file
     #./mtfahash| tee -a $results_file
-    echo "Run for MTF Linked Hash with WORDS=$WORDS DATA=$DATA TABLE_SIZE=$TABLE_SIZE SEED=$SEED" | tee -a $results_file
-    ./mtflhash| tee -a $results_file
+    #echo "Run for MTF Linked Hash with WORDS=$WORDS DATA=$DATA TABLE_SIZE=$TABLE_SIZE SEED=$SEED" | tee -a $results_file
+    #./mtflhash| tee -a $results_file
 
 done
