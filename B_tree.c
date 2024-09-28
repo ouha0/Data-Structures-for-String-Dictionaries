@@ -932,12 +932,15 @@ int B_tree_insert_nonfull(char* node, const char* str) {
                 length_vary = *(int*)tmp_move; tmp_move += sizeof(int);
 
 
+
                 while(*tmp_move && (*tmp_move == *str_reuse)) {
                     tmp_move++; str_reuse++;
                     length_vary--;
                 }
                 
                 store = (unsigned char)(*tmp_move) - (unsigned char)(*str_reuse);
+                keys_processed += 1;
+
                 tmp_move += length_vary + 1;
 
 
