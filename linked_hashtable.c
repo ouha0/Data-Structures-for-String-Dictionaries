@@ -194,6 +194,9 @@ inline hashtable_t* create_hashtable(int size) {
     hash -> buckets = calloc(size, sizeof(char**));
     hash -> table_size = size;
 
+    memory_usage += sizeof(hashtable_t) + size * sizeof(char**) + sizeof(int);
+    memory_usage += ALLOCATE_OVERHEAD;
+
     return hash;
 }
 
@@ -270,6 +273,8 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             /* Lexigraphic difference between the two strings */
             str_cmp_difference = (unsigned char)(*node) - (unsigned char)(*str_reuse);
             node += length_vary + 1; 
+            
+            /* Key of current node processed */
             keys_processed++;
 
             /* If the string to insert is the same as linked list, increase the counter */

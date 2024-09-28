@@ -199,6 +199,10 @@ inline hashtable_t* create_hashtable(int size) {
     hash -> buckets = calloc(size, sizeof(char**));
     hash -> table_size = size;
 
+
+    memory_usage += sizeof(hashtable_t) + size * sizeof(char**) + sizeof(int);
+    memory_usage += ALLOCATE_OVERHEAD;
+
     return hash;
 }
 
@@ -295,6 +299,8 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
                     *(char**)prev_node = *(char**)node_start; // Update next pointer of previous node 
                     *(char**)node_start = initial;
                     table -> buckets[index] = node_start;
+
+                    keys_processed += 3; // Move pointers of 3 data structures; 3 keys processed
                 }
 
                 return;
@@ -374,6 +380,8 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
                 *(char**)prev_node = *(char**)node_start;
                 *(char**)node_start = initial;
                 table -> buckets[index] = node_start;
+
+                keys_processed += 3; // Move 3 nodes; 3 keys processed
             }
            
             optimization_counter++;

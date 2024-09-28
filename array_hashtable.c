@@ -97,7 +97,7 @@ static size_t memory_usage = 0;
 static int unique_key_counter = 0;
 static int non_unique_key_counter = 0;
 static size_t keys_processed = 0;
-static int number_of_nodes = 0;
+static int number_buckets = 0;
 
 
 static size_t optimization_counter = 0;
@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
     printf("%zu, MUX, Array-hash, memory usage\n", memory_usage);
     printf("%d, UKX, Array-hash, unique strings\n", unique_key_counter);
     printf("%zu, KPX, Array-hash, keys processed\n", keys_processed);
-    // printf("%d, NNX, Array-hash, number of nodes\n", number_of_nodes);
+    printf("%d, NNX, Array-hash, number of buckets\n", number_buckets);
     printf("%.11Lf, STX, Array-hash, average string search time\n", elapsed2/non_unique_key_counter);
     printf("\n");
 
@@ -240,7 +240,7 @@ inline char* create_array(void) {
     memory_usage += (sizeof(char) * INITIAL_ARR_SIZE);
     memory_usage += ALLOCATE_OVERHEAD;
 
-    number_of_nodes++;
+    number_buckets++;
 
     return tmp;
 }
@@ -291,11 +291,8 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             table -> buckets[index] = array ;
             
             /* Move all elements of array into another array -> update keys processed */
-            keys_processed += 2 * sizeof(size_t);
+            // keys_processed += 2 * sizeof(size_t); // Reallocating memory isn't considered keys processed 
         }
-
-
-
 
         /* Store new key at start of array after housekeeping variables */ 
         tmp_ptr = array;
@@ -335,6 +332,7 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             length_vary = tmp_length;
             str_reuse = str;
 
+            /* String comparison function */
             while(*tmp_ptr && (*tmp_ptr == *str_reuse)) {
                 tmp_ptr++;
                 str_reuse++;
@@ -378,7 +376,7 @@ void hash_insert(hashtable_t *table, char* str, char* buffer) {
             table -> buckets[index] = array ;
             
             /* Move all elements of array into another array -> update keys processed */
-            keys_processed += array_use;
+            // keys_processed += array_use; // realloating memory not considered keys processed 
 
             array_size *= 2;
         }
@@ -495,7 +493,7 @@ char* get_hash(hashtable_t *table, char* str, char* buffer) {
 
 
 /* Hash function */
-unsigned int xorhash(char *word, int tsize)
+inline unsigned int xorhash(char *word, int tsize)
 {
     char	c;
     unsigned int	h;
