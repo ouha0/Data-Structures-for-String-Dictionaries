@@ -53,7 +53,7 @@ int binary_tree_search(char* node, const char* str);
 
 
 
-int custom_strcmp(const char* str, char* str_ptr);
+inline int custom_strcmp(const char* str, char** str_ptr, int key_str_length);
 
 /* Supplementary Function Prototypes */
 void move_to_left_pointer(char** node_ptr);
@@ -176,7 +176,6 @@ int main(int argc, char** argv) {
     binary_inorder(tree_root, word);
     printf("\n");
 
-
     /* Printing all the measuring variable data */
     printf("For Binary tree:\n");
     printf("%d, NUX, Binary tree, non-unique strings\n", non_unique_key_counter);
@@ -209,6 +208,9 @@ void binary_tree_insert(char** root_ptr, const char* str) {
     char* x = *root_ptr;
     int store;
 
+    char* tmp; int tmp_length;
+    const char* str_reuse;
+
     // char buffer[MAX_STRING_BYTES + 1];
 
     while(x != NULL) {
@@ -219,19 +221,39 @@ void binary_tree_insert(char** root_ptr, const char* str) {
         /* String smaller than current key */
         //if ((store = compare_str_node(str, x, buffer)) <= 0)
 
+        /* The following is a custom string comparison function */
+        tmp = x + 2 * sizeof(char*); tmp_length = *(int*)tmp;
+        tmp += sizeof(int);
 
-        if ((store = strcmp(str, x + 2 * sizeof(char*) + sizeof(int))) <= 0) {
+        str_reuse = str;
+
+        while(*tmp && (*tmp == *str_reuse)) {
+            tmp++;
+            str_reuse++;
+            tmp_length--;
+        }
+
+        /* Lexigraphic difference between the two strings */
+        store = (unsigned char)(*str_reuse) - (unsigned char)(*tmp);
+        tmp += tmp_length + 1;
+
+        keys_processed++;
+
+        // if ((store = custom_strcmp(str, &tmp, tmp_length)) <= 0) {
+        // if ((store = strcmp(str, x + 2 * sizeof(char*) + sizeof(int))) <= 0) {
+        if (store <= 0) {
 
             /* If same string, increment counter for x */
             if (store == 0) {
-                return increment_counter(x);
+                *(int*)tmp += 1;
+                return;
             } else {
-                x = *(char**)(x + LEFT_PTR_OFFSET);
+                x = *(char**)(x);
             }
-            
+
         /* When the string is larger than the key */
         } else {
-            x = *(char**)(x + RIGHT_PTR_OFFSET);
+            x = *(char**)(x + sizeof(char*));
         }
     }
 
@@ -243,10 +265,12 @@ void binary_tree_insert(char** root_ptr, const char* str) {
         *root_ptr = z;
         // printf("New root\n");
     // } else if (compare_key_string(z, y) < 0) {
-    } else if (strcmp(z + 2 * sizeof(char*) + sizeof(int), y + 2 * sizeof(char*) + sizeof(int)) < 0) {
-        *(char**)(y + LEFT_PTR_OFFSET) = z;
+    } else if (strcmp(str, y + 2 * sizeof(char*) + sizeof(int)) < 0) {
+        keys_processed++;
+        *(char**)(y) = z;
     } else {
-        *(char**)(y + RIGHT_PTR_OFFSET) = z;
+        keys_processed++;
+        *(char**)(y + sizeof(char*)) = z;
     }
 }
 
@@ -285,13 +309,13 @@ void binary_tree_insert(char** root_ptr, const char* str) {
  * the node if the string is found. Otherwise, it outputs to stdout that string
  * was not found. */
 int binary_tree_search(char* root, const char* str) {
-    // char buffer[MAX_STRING_BYTES + 1];
+    // char buffer[200];
     char* current = root;
     int store;
 
 
     /* For checking */
-    int nodes_visited = 0;
+    // int nodes_visited = 0;
 
     while (current != NULL) {
         // if ((store = compare_str_node(str, current, buffer)) == 0) {
@@ -301,6 +325,7 @@ int binary_tree_search(char* root, const char* str) {
         keys_processed++; // string comparison 
         
         if ((store = strcmp(str, current + 2 * sizeof(char*) + sizeof(int))) == 0) {
+
             //printf("String is found\n");
             //print_binary_node(current, buffer);
             // printf("To find %s, there were %d node visits\n", str, nodes_visited);
@@ -311,10 +336,10 @@ int binary_tree_search(char* root, const char* str) {
 
         /* WHen string smaller than key, traverse left branch */
         } else if (store < 0) {
-            current = *(char**)(current + LEFT_PTR_OFFSET);
+            current = *(char**)(current);
         /* When string is larger than the key, traverse right branch */
         } else {
-            current = *(char**)(current + RIGHT_PTR_OFFSET);
+            current = *(char**)(current + sizeof(char*));
         }
     }
 
@@ -328,7 +353,7 @@ int binary_tree_search(char* root, const char* str) {
 /* Function that takes a constant string as input. The function creates a node of the form
  * left child pointer, right child pointer and key. The key is defined as string length (integer), 
  * string (char*) and string counter (integer). The function outputs the node address of node */
-char* create_node(const char* str) {
+inline char* create_node(const char* str) {
     /* Get length of string */
     int tmp_length = strlen(str);
 
@@ -348,6 +373,7 @@ char* create_node(const char* str) {
     memory_usage += ALLOCATE_OVERHEAD;
 
     number_of_nodes++;
+    keys_processed++;
 
     return tmp;
 }
@@ -357,19 +383,41 @@ char* create_node(const char* str) {
 /* Function that takes a ptr to a str (in a key) and string to compare as input. The funciton compares 
  * the relative lexigraphic size of the strings, and outputs the results. The function also moves the 
  * ptr to the string to the start of the next block */
-inline int custom_strcmp(const char* str, char* str_ptr) {
+//inline int custom_strcmp(const char* str, char* str_ptr) {
+//    /* String comparision between the two strings */
+//    while(*str_ptr && (*str_ptr == *str)) {
+//        str_ptr++;
+//        str++;
+//    }
+//
+//    keys_processed++;
+//    /* Lexigraphic difference between the two strings */
+//    
+//    return (unsigned char)(*str_ptr) - (unsigned char)(*str);
+//    
+//}
+
+
+
+inline int custom_strcmp(const char* str, char** str_ptr, int key_str_length) {
     /* String comparision between the two strings */
-    while(*str_ptr && (*str_ptr == *str)) {
-        str_ptr++;
+    while(**str_ptr && (**str_ptr == *str)) {
+        (*str_ptr)++;
         str++;
+        key_str_length--;
     }
 
-    keys_processed++;
     /* Lexigraphic difference between the two strings */
+    int difference = (unsigned char)(*str) - (unsigned char)(**str_ptr);
+    *(str_ptr) += key_str_length + 1;
+
+    // assert(*(*str_ptr - 1) == '\0');
     
-    return (unsigned char)(*str_ptr) - (unsigned char)(*str);
-    
+    keys_processed++;
+    return difference;
 }
+
+
 
 
 /* Function that takes a node_ptr and moves the position of *node_ptr so that it points to the left child pointer.
@@ -456,7 +504,11 @@ void print_binary_node(char* node, char* tmp_word) {
 
     /* Prints the address of the child pointers */
     // THIS MIGHT BE WRONG. NO GUARENTEE THAT CHILD POINTERS ARE NON-EMPTY
-    printf("The left child pointer is %p. The right child pointer is %p\n", 
+
+    printf("Node address: %p\n", node);
+
+
+    printf("LP: %p RP: %p", 
            *(char**)(node + LEFT_PTR_OFFSET), *(char**)(node + RIGHT_PTR_OFFSET));
 
 
@@ -468,7 +520,7 @@ void print_binary_node(char* node, char* tmp_word) {
     
     int tmp_counter = *(int*)node;
 
-    printf("Length: %d String: %s Count: %d \n", tmp_length, tmp_word, tmp_counter);
+    printf(" Length: %d String: %s Count: %d \n\n", tmp_length, tmp_word, tmp_counter);
 
     return;
 }
