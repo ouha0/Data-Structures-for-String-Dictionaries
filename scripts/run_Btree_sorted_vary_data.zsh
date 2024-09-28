@@ -8,8 +8,8 @@ cd "$(dirname "$0")/.."
 results_file="results/B_tree_vary_words.txt"
 rm -f ./$results_file
 
-WORD_VALUES=(10000 50000 250000 1250000 6250000)
-DATA=1
+WORD_VALUES=(10000 50000 250000 1250000 6250000 31250000)
+DATA=2
 NSIZE=1024
 
 
