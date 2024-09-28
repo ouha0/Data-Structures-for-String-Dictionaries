@@ -81,6 +81,7 @@ static int number_of_nodes = 0;
 
 /* Variables for debugging */
 static size_t total_node_search_visits = 0;
+static size_t optimization_counter = 0;
 
 
 int main(int argc, char** argv) {
@@ -91,7 +92,7 @@ int main(int argc, char** argv) {
 
     /* Variables for measuring time */
     struct timespec prec_start, prec_end, search_start, search_end;
-    double elapsed1, elapsed2 = 0;
+    long double elapsed1, elapsed2;
     double single_search_time;
     
     /* Row allocation */
@@ -156,22 +157,19 @@ int main(int argc, char** argv) {
 
     /* Search for the words in the binary tree */
 
+    clock_gettime(CLOCK_MONOTONIC, &search_start);
     //clock_gettime(CLOCK_MONOTONIC, &prec_start);
     for (int i = 0; i < counter - 1; i++) {
-        clock_gettime(CLOCK_MONOTONIC, &search_start);
         if(!binary_tree_search(tree_root, word_list[i])) {
             /* Word not found for some reason */
             assert(0);
         }
-        clock_gettime(CLOCK_MONOTONIC, &search_end);
-
         /* For checking and accumulate individual search times to cumulative search times */
-        single_search_time = (search_end.tv_sec - search_start.tv_sec) + (search_end.tv_nsec - search_start.tv_nsec) / 1E9; 
-        printf("The time to search for %s was %lf\n", word_list[i], single_search_time);
-        elapsed2 += single_search_time;
+        // printf("The time to search for %s was %lf\n", word_list[i], single_search_time);
     }
+    clock_gettime(CLOCK_MONOTONIC, &search_end);
     // clock_gettime(CLOCK_MONOTONIC, &prec_end);
-    // elapsed2 = (prec_end.tv_sec - prec_start.tv_sec) + (prec_end.tv_nsec - prec_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
+    elapsed2 = (search_end.tv_sec - search_start.tv_sec) + (search_end.tv_nsec - search_start.tv_nsec) / 1E9; // Number of seconds and nanoseconds (converted to seconds)
 
 
     /* Printing all strings in order */
@@ -182,8 +180,8 @@ int main(int argc, char** argv) {
     /* Printing all the measuring variable data */
     printf("For Binary tree:\n");
     printf("%d, NUX, Binary tree, non-unique strings\n", non_unique_key_counter);
-    printf("%.3f, INX, Binary tree, seconds to insert\n", elapsed1);
-    printf("%.3f, SRX, Binary tree, seconds to search\n", elapsed2);
+    printf("%.3Lf, INX, Binary tree, seconds to insert\n", elapsed1);
+    printf("%.3Lf, SRX, Binary tree, seconds to search\n", elapsed2);
     printf("%zu, MUX, Binary tree, memory usage\n", memory_usage);
     printf("%d, UKX, Binary tree, unique strings\n", unique_key_counter);
     printf("%zu, KPX, Binary tree, keys processed\n", keys_processed);
@@ -193,7 +191,7 @@ int main(int argc, char** argv) {
 
     printf("These measurements are used for debugging\n");
     printf("The average node visits per string search is %lf\n", (double)total_node_search_visits/non_unique_key_counter);
-    printf("The average word search time is %lf\n", elapsed2/non_unique_key_counter);
+    printf("The average word search time is %.11Lf\n", elapsed2/non_unique_key_counter);
     
 
 
@@ -220,6 +218,7 @@ void binary_tree_insert(char** root_ptr, const char* str) {
         /* Compare keys to determine which child node to access */
         /* String smaller than current key */
         //if ((store = compare_str_node(str, x, buffer)) <= 0)
+
 
         if ((store = strcmp(str, x + 2 * sizeof(char*) + sizeof(int))) <= 0) {
 
@@ -286,7 +285,7 @@ void binary_tree_insert(char** root_ptr, const char* str) {
  * the node if the string is found. Otherwise, it outputs to stdout that string
  * was not found. */
 int binary_tree_search(char* root, const char* str) {
-    char buffer[MAX_STRING_BYTES + 1];
+    // char buffer[MAX_STRING_BYTES + 1];
     char* current = root;
     int store;
 
@@ -298,7 +297,7 @@ int binary_tree_search(char* root, const char* str) {
         // if ((store = compare_str_node(str, current, buffer)) == 0) {
         //if ((store = custom_strcmp(str, current + sizeof(char*) + sizeof(char*) + sizeof(int))) == 0) {
 
-        nodes_visited++;
+        // nodes_visited++;
         keys_processed++; // string comparison 
         
         if ((store = strcmp(str, current + 2 * sizeof(char*) + sizeof(int))) == 0) {
@@ -306,8 +305,8 @@ int binary_tree_search(char* root, const char* str) {
             //print_binary_node(current, buffer);
             // printf("To find %s, there were %d node visits\n", str, nodes_visited);
 
-            total_node_search_visits += nodes_visited;
-            printf("To find %s, there were %d node visits\n", str, nodes_visited);
+            //total_node_search_visits += nodes_visited;
+            //printf("To find %s, there were %d node visits\n", str, nodes_visited);
             return 1;
 
         /* WHen string smaller than key, traverse left branch */
@@ -320,7 +319,7 @@ int binary_tree_search(char* root, const char* str) {
     }
 
     /* Performance measure: Increase tally */
-    total_node_search_visits += nodes_visited;
+    //total_node_search_visits += nodes_visited;
     return 0;
 }
 
