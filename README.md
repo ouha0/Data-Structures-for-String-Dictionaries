@@ -30,7 +30,7 @@ structures for variable-length strings on contemporary machines, focusing on com
 
 This repository contains C implementations of the following data structures, designed with cache-awareness principles (e.g., compact layouts using byte arrays):
 
-* **Binary Search Tree (BST)
+* **Binary Search Tree (BST)**
 * **B-Tree:**
 * **B+ Tree:**
 * **Chained Hash Table (Linked Hash):** 
