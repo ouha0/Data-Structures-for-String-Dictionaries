@@ -39,3 +39,6 @@ This repository contains C implementations of the following data structures, des
 
 ---
 
+## Data
+Both uniformly and non-uniformly distributed string data were used during experimentation. Most web texts, regardless of language, the frequency of words is non-uniform (i.e. pronouns in English are much more likely to occur compared to other words). This was an important comparison because how well a data structure performs often depends on whether the data is random or follows a more realistic, skewed pattern. 
+
