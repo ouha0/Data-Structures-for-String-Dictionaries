@@ -1,8 +1,8 @@
-# Research Project: Cache-Aware Data Structures for Managing String Dictionaries
+# Project: Cache-Aware Data Structures for Managing String Dictionaries
 
 ---
 
-## Abstract
+## Introduction
 
 This project experimentally investigates the performance of various data structures for managing large, in-memory string dictionaries, with a focus on 
 cache efficiency on modern commodity machines. Traditional analysis often overlooks cache effects, especially for variable-length strings.
@@ -13,7 +13,6 @@ performance across all datasets.
 BSTs outperformed B-trees on skewed data, while B-trees scaled better on uniform data. Interestingly,
 the MTF heuristic did not yield the performance benefits observed in older research, suggesting changes in hardware or datasets may have altered its effectiveness.
 
-**Keywords:** Array-hash, Reference Locality, Compact data layout, Cache, Cache-aware data structures, B-trees, String Dictionaries, Performance Evaluation
 
 ---
 
