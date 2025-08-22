@@ -5,3 +5,5 @@ test/
 *.o
 build/
 .DS_Store
+
+*.dSYM/
